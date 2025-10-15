@@ -1,8 +1,10 @@
-import { Supply, Order, DailyIncome } from "@/types";
+import { Supply, Order, DailyIncome, WeeklyBudget } from "@/types";
 
 const SUPPLIES_KEY = "supplies";
 const ORDERS_KEY = "orders";
 const INCOME_KEY = "income";
+const SHOPS_KEY = "shops";
+const WEEKLY_BUDGET_KEY = "weekly_budgets";
 
 // Supplies
 export const getSupplies = (): Supply[] => {
@@ -68,4 +70,49 @@ export const saveIncomeRecord = (record: DailyIncome): void => {
 export const deleteIncomeRecord = (id: string): void => {
   const records = getIncomeRecords().filter((r) => r.id !== id);
   localStorage.setItem(INCOME_KEY, JSON.stringify(records));
+};
+
+// Shops
+export const getShops = (): string[] => {
+  const data = localStorage.getItem(SHOPS_KEY);
+  return data ? JSON.parse(data) : [];
+};
+
+export const saveShop = (shopName: string): void => {
+  const shops = getShops();
+  if (!shops.includes(shopName)) {
+    shops.push(shopName);
+    localStorage.setItem(SHOPS_KEY, JSON.stringify(shops));
+  }
+};
+
+export const deleteShop = (shopName: string): void => {
+  const shops = getShops().filter((s) => s !== shopName);
+  localStorage.setItem(SHOPS_KEY, JSON.stringify(shops));
+};
+
+// Weekly Budgets
+export const getWeeklyBudgets = (): WeeklyBudget[] => {
+  const data = localStorage.getItem(WEEKLY_BUDGET_KEY);
+  return data ? JSON.parse(data) : [];
+};
+
+export const saveWeeklyBudget = (budget: WeeklyBudget): void => {
+  const budgets = getWeeklyBudgets();
+  const index = budgets.findIndex((b) => b.id === budget.id);
+  if (index > -1) {
+    budgets[index] = budget;
+  } else {
+    budgets.push(budget);
+  }
+  localStorage.setItem(WEEKLY_BUDGET_KEY, JSON.stringify(budgets));
+};
+
+export const getCurrentWeekBudget = (shop: string): WeeklyBudget | null => {
+  const budgets = getWeeklyBudgets();
+  const now = new Date();
+  const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+  
+  return budgets.find(b => b.shop === shop && b.weekStartDate === weekStartStr) || null;
 };

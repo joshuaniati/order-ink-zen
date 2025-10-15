@@ -28,9 +28,9 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     : incomeRecords.filter(i => i.shop === selectedShop);
 
   // Calculate metrics
-  const lowStockItems = filteredSupplies.filter(s => s.currentStock <= s.minStockLevel);
+  const lowStockItems: any[] = []; // Removed low stock tracking as Supply no longer has minStockLevel
   const pendingOrders = filteredOrders.filter(o => o.status === "Pending");
-  const stockValue = filteredSupplies.reduce((sum, s) => sum + (s.currentStock * s.pricePerUnit), 0);
+  const stockValue = 0; // Removed stock value calculation as Supply no longer has pricePerUnit
   
   // Today's income
   const today = new Date().toISOString().split('T')[0];
@@ -63,11 +63,11 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
           variant="default"
         />
         <MetricCard
-          title="Low Stock Alerts"
-          value={lowStockItems.length}
-          description="Items need reordering"
-          icon={AlertTriangle}
-          variant={lowStockItems.length > 0 ? "warning" : "default"}
+          title="Total Amount"
+          value={filteredSupplies.reduce((sum, s) => sum + s.amount, 0)}
+          description="Combined quantity"
+          icon={Package}
+          variant="default"
         />
         <MetricCard
           title="Pending Orders"
@@ -88,45 +88,38 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Stock Value</CardTitle>
-            <CardDescription>Total value of current inventory</CardDescription>
+            <CardTitle>Total Supplies</CardTitle>
+            <CardDescription>Inventory summary</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatCurrency(stockValue)}</div>
+            <div className="text-3xl font-bold">{filteredSupplies.length}</div>
             <p className="text-sm text-muted-foreground mt-2">
-              {filteredSupplies.length} unique items
+              Total amount: {filteredSupplies.reduce((sum, s) => sum + s.amount, 0)}
             </p>
           </CardContent>
         </Card>
-
-        {lowStockItems.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-warning" />
-                Low Stock Alerts
-              </CardTitle>
-              <CardDescription>Items requiring immediate attention</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {lowStockItems.slice(0, 3).map((item) => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <span className="font-medium">{item.name}</span>
-                    <span className="text-muted-foreground">
-                      {item.currentStock} {item.unit}
-                    </span>
-                  </div>
-                ))}
-                {lowStockItems.length > 3 && (
-                  <p className="text-xs text-muted-foreground">
-                    +{lowStockItems.length - 3} more items
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Supplies</CardTitle>
+            <CardDescription>Latest inventory items</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {filteredSupplies.slice(0, 5).map((item) => (
+                <div key={item.id} className="flex justify-between text-sm">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="text-muted-foreground">
+                    {item.amount}
+                  </span>
+                </div>
+              ))}
+              {filteredSupplies.length === 0 && (
+                <p className="text-sm text-muted-foreground">No supplies yet</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

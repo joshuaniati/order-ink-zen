@@ -15,16 +15,16 @@ const ShopDashboard = () => {
   const orders = getOrders().filter(o => o.shop === shop);
   const incomeRecords = getIncomeRecords().filter(i => i.shop === shop);
 
-  const lowStockItems = supplies.filter(s => s.currentStock <= s.minStockLevel);
+  const lowStockItems: any[] = []; // Removed as Supply no longer has minStockLevel
   const pendingOrders = orders.filter(o => o.status !== "Delivered");
-  const stockValue = supplies.reduce((sum, s) => sum + (s.currentStock * s.pricePerUnit), 0);
+  const totalAmount = supplies.reduce((sum, s) => sum + s.amount, 0);
 
   const today = new Date().toISOString().split('T')[0];
   const todayIncome = incomeRecords
     .filter(i => i.date === today)
     .reduce((sum, i) => sum + i.netIncome, 0);
 
-  const shopColors: Record<Shop, string> = {
+  const shopColors: Record<string, string> = {
     A: "shop-a",
     B: "shop-b",
     C: "shop-c",
@@ -43,9 +43,16 @@ const ShopDashboard = () => {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          title="Stock Value"
-          value={formatCurrency(stockValue)}
-          description={`${supplies.length} items in inventory`}
+          title="Total Supplies"
+          value={supplies.length}
+          description="Items in inventory"
+          icon={Package}
+          variant="default"
+        />
+        <MetricCard
+          title="Total Amount"
+          value={totalAmount}
+          description="Combined quantity"
           icon={Package}
           variant="default"
         />
@@ -63,38 +70,24 @@ const ShopDashboard = () => {
           icon={DollarSign}
           variant={todayIncome >= 0 ? "success" : "destructive"}
         />
-        <MetricCard
-          title="Low Stock Items"
-          value={lowStockItems.length}
-          description="Need reordering"
-          icon={AlertTriangle}
-          variant={lowStockItems.length > 0 ? "warning" : "default"}
-        />
       </div>
 
-      {lowStockItems.length > 0 && (
+      {supplies.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-warning" />
-              Low Stock Alerts
-            </CardTitle>
-            <CardDescription>Items requiring immediate attention</CardDescription>
+            <CardTitle>Recent Supplies</CardTitle>
+            <CardDescription>Latest inventory items</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {lowStockItems.map((item) => (
+              {supplies.slice(0, 5).map((item) => (
                 <div key={item.id} className="flex items-center justify-between border-b pb-2 last:border-0">
                   <div>
                     <p className="font-medium">{item.name}</p>
-                    <p className="text-sm text-muted-foreground">{item.category}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-destructive">
-                      {item.currentStock} {item.unit}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Min: {item.minStockLevel} {item.unit}
+                    <p className="font-bold">
+                      {item.amount}
                     </p>
                   </div>
                 </div>

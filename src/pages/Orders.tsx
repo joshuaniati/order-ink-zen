@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Shop, Order, OrderStatus } from "@/types";
-import { getOrders, saveOrder, deleteOrder, getSupplies } from "@/lib/storage";
+import { getOrders, saveOrder, deleteOrder, getSupplies, getShops, getCurrentWeekBudget, saveWeeklyBudget } from "@/lib/storage";
 import { formatCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 interface OrdersProps {
@@ -21,9 +21,12 @@ interface OrdersProps {
 const Orders = ({ selectedShop }: OrdersProps) => {
   const [orders, setOrders] = useState<Order[]>(getOrders());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [budgetAmount, setBudgetAmount] = useState(0);
   
   const supplies = getSupplies();
+  const shops = getShops();
   const today = new Date().toISOString().split('T')[0];
   
   const [formData, setFormData] = useState({
@@ -33,7 +36,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     orderAmount: 0,
     amountDelivered: 0,
     deliveryDate: "",
-    shop: "A" as Shop,
+    shop: shops[0] || "",
     notes: "",
   });
 
@@ -97,10 +100,51 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       orderAmount: 0,
       amountDelivered: 0,
       deliveryDate: "",
-      shop: "A",
+      shop: shops[0] || "",
       notes: "",
     });
   };
+
+  const handleBudgetSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedShop === "All") {
+      toast.error("Please select a specific shop to set budget");
+      return;
+    }
+    const now = new Date();
+    const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+    
+    const budget = {
+      id: crypto.randomUUID(),
+      shop: selectedShop,
+      weekStartDate: weekStartStr,
+      budgetAmount,
+      createdAt: new Date().toISOString(),
+    };
+    
+    saveWeeklyBudget(budget);
+    setIsBudgetDialogOpen(false);
+    setBudgetAmount(0);
+    toast.success("Weekly budget set");
+  };
+
+  // Get current week's budget for selected shop
+  const currentBudget = selectedShop !== "All" ? getCurrentWeekBudget(selectedShop) : null;
+  
+  // Calculate total order amount for current week
+  const now = new Date();
+  const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+  
+  const weekOrders = filteredOrders.filter(o => {
+    const orderDate = new Date(o.orderDate);
+    return orderDate >= new Date(weekStartStr);
+  });
+  
+  const totalOrderAmount = weekOrders.reduce((sum, o) => sum + o.orderAmount, 0);
+  const budgetBalance = currentBudget ? currentBudget.budgetAmount - totalOrderAmount : 0;
+  const isOverBudget = currentBudget && totalOrderAmount > currentBudget.budgetAmount;
 
   const pendingOrders = filteredOrders.filter(o => o.status === "Pending");
   const partialOrders = filteredOrders.filter(o => o.status === "Partial");
@@ -122,17 +166,50 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <h2 className="text-3xl font-bold tracking-tight">Orders</h2>
           <p className="text-muted-foreground">Manage purchase orders and deliveries</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Order
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+        <div className="flex gap-2">
+          <Dialog open={isBudgetDialogOpen} onOpenChange={setIsBudgetDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">Set Weekly Budget</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Set Weekly Budget</DialogTitle>
+                <DialogDescription>
+                  Set the budget for {selectedShop !== "All" ? selectedShop : "a shop"} for this week
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleBudgetSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="budget">Budget Amount (ZAR) *</Label>
+                  <Input
+                    id="budget"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={budgetAmount}
+                    onChange={(e) => setBudgetAmount(parseFloat(e.target.value))}
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsBudgetDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Set Budget</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Order
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editingOrder ? "Edit Order" : "Create New Order"}</DialogTitle>
               <DialogDescription>
@@ -150,7 +227,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                     <SelectContent>
                       {supplies.map((supply) => (
                         <SelectItem key={supply.id} value={supply.id}>
-                          {supply.name} - Shop {supply.shop}
+                          {supply.name} - {supply.shop}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -207,14 +284,14 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="shop">Shop *</Label>
-                  <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value as Shop })}>
+                  <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="A">Shop A</SelectItem>
-                      <SelectItem value="B">Shop B</SelectItem>
-                      <SelectItem value="C">Shop C</SelectItem>
+                      {shops.map((shop) => (
+                        <SelectItem key={shop} value={shop}>{shop}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -238,7 +315,48 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {currentBudget && selectedShop !== "All" && (
+        <Card className={isOverBudget ? "border-destructive" : "border-primary"}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {isOverBudget ? (
+                <TrendingDown className="h-5 w-5 text-destructive" />
+              ) : (
+                <TrendingUp className="h-5 w-5 text-primary" />
+              )}
+              Weekly Budget Status
+            </CardTitle>
+            <CardDescription>Current week budget tracking for {selectedShop}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Budget</p>
+                <p className="text-2xl font-bold">{formatCurrency(currentBudget.budgetAmount)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Orders Total</p>
+                <p className="text-2xl font-bold">{formatCurrency(totalOrderAmount)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Balance</p>
+                <p className={`text-2xl font-bold ${isOverBudget ? 'text-destructive' : 'text-primary'}`}>
+                  {formatCurrency(Math.abs(budgetBalance))}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Status</p>
+                <Badge variant={isOverBudget ? "destructive" : "default"} className="text-base">
+                  {isOverBudget ? "Over Budget" : "Under Budget"}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -302,7 +420,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   <TableCell>{order.amountDelivered}</TableCell>
                   <TableCell>{order.deliveryDate}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">Shop {order.shop}</Badge>
+                    <Badge variant="outline">{order.shop}</Badge>
                   </TableCell>
                   <TableCell>{getStatusBadge(order.status)}</TableCell>
                   <TableCell className="text-right">

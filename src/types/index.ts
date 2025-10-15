@@ -1,15 +1,18 @@
-export type Shop = "A" | "B" | "C" | "All";
+export type Shop = string;
 
 export interface Supply {
   id: string;
   name: string;
-  category: string;
-  currentStock: number;
-  unit: string;
-  pricePerUnit: number;
-  supplier: string;
-  minStockLevel: number;
+  amount: number;
   shop: Shop;
+  createdAt: string;
+}
+
+export interface WeeklyBudget {
+  id: string;
+  shop: Shop;
+  weekStartDate: string;
+  budgetAmount: number;
   createdAt: string;
 }
 

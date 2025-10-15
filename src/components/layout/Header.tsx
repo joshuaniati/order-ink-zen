@@ -1,5 +1,13 @@
+import { useState } from "react";
 import { Shop } from "@/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { getShops, saveShop } from "@/lib/storage";
+import { Plus } from "lucide-react";
+import { toast } from "sonner";
 import { Store } from "lucide-react";
 
 interface HeaderProps {
@@ -8,6 +16,21 @@ interface HeaderProps {
 }
 
 const Header = ({ selectedShop, onShopChange }: HeaderProps) => {
+  const [shops, setShops] = useState<string[]>(getShops());
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newShopName, setNewShopName] = useState("");
+
+  const handleAddShop = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newShopName.trim()) {
+      saveShop(newShopName.trim());
+      setShops(getShops());
+      setNewShopName("");
+      setIsDialogOpen(false);
+      toast.success("Shop added successfully");
+    }
+  };
+
   return (
     <header className="border-b bg-card">
       <div className="container mx-auto px-4 py-4">
@@ -23,16 +46,47 @@ const Header = ({ selectedShop, onShopChange }: HeaderProps) => {
           </div>
           
           <div className="flex items-center gap-2">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Shop</DialogTitle>
+                  <DialogDescription>Enter the name for your new shop</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleAddShop} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="shopName">Shop Name *</Label>
+                    <Input
+                      id="shopName"
+                      required
+                      value={newShopName}
+                      onChange={(e) => setNewShopName(e.target.value)}
+                      placeholder="e.g., Downtown Store"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit">Add Shop</Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
             <span className="text-sm text-muted-foreground">Shop:</span>
-            <Select value={selectedShop} onValueChange={(value) => onShopChange(value as Shop)}>
-              <SelectTrigger className="w-32">
+            <Select value={selectedShop} onValueChange={(value) => onShopChange(value)}>
+              <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All">All Shops</SelectItem>
-                <SelectItem value="A">Shop A</SelectItem>
-                <SelectItem value="B">Shop B</SelectItem>
-                <SelectItem value="C">Shop C</SelectItem>
+                {shops.map((shop) => (
+                  <SelectItem key={shop} value={shop}>{shop}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
