@@ -1,10 +1,10 @@
 import { useState } from "react";
+import { Outlet } from "react-router-dom";
 import { Shop } from "@/types";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
-import Dashboard from "./Dashboard";
 
-const Index = () => {
+const MainLayout = () => {
   const [selectedShop, setSelectedShop] = useState<Shop>("All");
 
   return (
@@ -13,11 +13,11 @@ const Index = () => {
       <div className="flex">
         <Sidebar />
         <main className="flex-1 p-6">
-          <Dashboard selectedShop={selectedShop} />
+          <Outlet context={{ selectedShop }} />
         </main>
       </div>
     </div>
   );
 };
 
-export default Index;
+export default MainLayout;
