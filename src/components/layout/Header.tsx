@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Shop } from "@/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -16,9 +16,29 @@ interface HeaderProps {
 }
 
 const Header = ({ selectedShop, onShopChange }: HeaderProps) => {
-  const [shops, setShops] = useState<string[]>(getShops());
+  const [shops, setShops] = useState<string[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newShopName, setNewShopName] = useState("");
+
+  // Initialize shops and remove defaults
+  useEffect(() => {
+    const currentShops = getShops();
+    const defaultShops = ["Shop A", "Shop B", "Shop C"];
+    
+    // Filter out the default shops
+    const filteredShops = currentShops.filter(shop => !defaultShops.includes(shop));
+    
+    // If we filtered anything out, update storage
+    if (filteredShops.length !== currentShops.length) {
+      // Clear all shops from storage
+      localStorage.removeItem('shops');
+      // Re-add only the non-default shops
+      filteredShops.forEach(shop => saveShop(shop));
+      setShops(filteredShops);
+    } else {
+      setShops(currentShops);
+    }
+  }, []);
 
   const handleAddShop = (e: React.FormEvent) => {
     e.preventDefault();
