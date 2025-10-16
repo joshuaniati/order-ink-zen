@@ -34,38 +34,38 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
   });
 
   // Fetch data from Supabase
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch supplies
-        const { data: suppliesData, error: suppliesError } = await supabase
-          .from('supplies')
-          .select('*')
-          .order('created_at', { ascending: false });
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch supplies
+      const { data: suppliesData, error: suppliesError } = await supabase
+        .from('supplies')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-        if (suppliesError) throw suppliesError;
+      if (suppliesError) throw suppliesError;
 
-        setSupplies(suppliesData || []);
+      setSupplies(suppliesData || []);
 
-        // Extract unique shops from supplies
-        const uniqueShops = [...new Set(suppliesData?.map(s => s.shop) || [])];
-        setShops(uniqueShops);
-        
-        // Set default shop in form if available
-        if (uniqueShops.length > 0 && !formData.shop) {
-          setFormData(prev => ({ ...prev, shop: uniqueShops[0] }));
-        }
-
-      } catch (error) {
-        console.error('Error fetching supplies:', error);
-        toast.error('Failed to load supplies');
-      } finally {
-        setLoading(false);
+      // Extract unique shops from supplies
+      const uniqueShops = [...new Set(suppliesData?.map(s => s.shop) || [])];
+      setShops(uniqueShops);
+      
+      // Set default shop in form if available
+      if (uniqueShops.length > 0 && !formData.shop) {
+        setFormData(prev => ({ ...prev, shop: uniqueShops[0] }));
       }
-    };
 
+    } catch (error) {
+      console.error('Error fetching supplies:', error);
+      toast.error('Failed to load supplies');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -94,37 +94,28 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
         toast.success("Supply updated successfully");
       } else {
         // Create new supply
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('supplies')
           .insert({
             name: formData.name,
             amount: formData.amount,
             phone_number: formData.phone_number,
             shop: formData.shop,
-          });
+          })
+          .select();
 
         if (error) throw error;
         toast.success("Supply added successfully");
       }
 
-      // Refresh supplies
-      const { data: newSupplies, error } = await supabase
-        .from('supplies')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      setSupplies(newSupplies || []);
-      
-      // Update shops list
-      const uniqueShops = [...new Set(newSupplies?.map(s => s.shop) || [])];
-      setShops(uniqueShops);
+      // Refresh all data including shops list
+      await fetchData();
       
       setIsDialogOpen(false);
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving supply:', error);
-      toast.error('Failed to save supply');
+      toast.error(`Failed to save supply: ${error.message}`);
     }
   };
 
@@ -150,11 +141,12 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
 
       if (error) throw error;
 
-      setSupplies(supplies.filter(supply => supply.id !== id));
+      // Refresh data after deletion
+      await fetchData();
       toast.success("Supply deleted successfully");
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting supply:', error);
-      toast.error('Failed to delete supply');
+      toast.error(`Failed to delete supply: ${error.message}`);
     }
   };
 
@@ -235,12 +227,16 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                   <Label htmlFor="shop">Shop *</Label>
                   <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value })}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select a shop" />
                     </SelectTrigger>
                     <SelectContent>
                       {shops.map((shop) => (
                         <SelectItem key={shop} value={shop}>{shop}</SelectItem>
                       ))}
+                      {/* Always show the basic shop options */}
+                      <SelectItem value="A">Shop A</SelectItem>
+                      <SelectItem value="B">Shop B</SelectItem>
+                      <SelectItem value="C">Shop C</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
