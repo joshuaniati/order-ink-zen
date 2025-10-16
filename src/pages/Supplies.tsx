@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useShops } from "@/hooks/useShops";
 
 interface SuppliesProps {
   selectedShop: Shop;
@@ -33,19 +34,26 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  const { shops, loading: shopsLoading, refreshShops } = useShops();
+  
   const [formData, setFormData] = useState({
     name: "",
     amount: 0,
     phone_number: "",
-    shop: "A",
+    shop: shops[0] || "A",
   });
+
+  // Update formData when shops load
+  useEffect(() => {
+    if (shops.length > 0 && !formData.shop) {
+      setFormData(prev => ({ ...prev, shop: shops[0] }));
+    }
+  }, [shops]);
 
   const fetchSupplies = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log("Fetching supplies...");
       
       const { data, error } = await supabase
         .from('supplies')
@@ -58,7 +66,6 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
         return;
       }
 
-      console.log("Supplies fetched:", data);
       setSupplies(data || []);
       
     } catch (err: any) {
@@ -110,6 +117,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
       }
 
       await fetchSupplies();
+      await refreshShops(); // Refresh shops list after adding new supply
       setIsDialogOpen(false);
       resetForm();
     } catch (error: any) {
@@ -141,6 +149,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
       if (error) throw error;
 
       await fetchSupplies();
+      await refreshShops(); // Refresh shops list after deletion
       toast.success("Supply deleted successfully");
     } catch (error: any) {
       console.error('Error deleting supply:', error);
@@ -154,7 +163,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
       name: "",
       amount: 0,
       phone_number: "",
-      shop: "A",
+      shop: shops[0] || "A",
     });
   };
 
@@ -194,7 +203,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     );
   }
 
-  if (loading) {
+  if (loading || shopsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-lg">Loading supplies...</div>
@@ -264,12 +273,14 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                 <Label htmlFor="shop">Shop *</Label>
                 <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value })}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select a shop" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="A">Shop A</SelectItem>
-                    <SelectItem value="B">Shop B</SelectItem>
-                    <SelectItem value="C">Shop C</SelectItem>
+                    {shops.map((shop) => (
+                      <SelectItem key={shop} value={shop}>
+                        {shop}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
