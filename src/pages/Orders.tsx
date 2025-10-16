@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Shop } from "@/types";
+import { Shop, OrderStatus } from "@/types";
+import { formatCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,67 +9,73 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, Pencil, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
-interface SuppliesProps {
+interface OrdersProps {
   selectedShop: Shop;
 }
 
+type Order = Tables<'orders'>;
 type Supply = Tables<'supplies'>;
+type WeeklyBudget = Tables<'weekly_budgets'>;
 
-const Supplies = ({ selectedShop }: SuppliesProps) => {
+const Orders = ({ selectedShop }: OrdersProps) => {
+  const [orders, setOrders] = useState<Order[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [shops, setShops] = useState<string[]>([]);
+  const [weeklyBudgets, setWeeklyBudgets] = useState<WeeklyBudget[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingSupply, setEditingSupply] = useState<Supply | null>(null);
+  const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [budgetAmount, setBudgetAmount] = useState(0);
   const [loading, setLoading] = useState(true);
   
+  const today = new Date().toISOString().split('T')[0];
+  
   const [formData, setFormData] = useState({
-    name: "",
-    amount: 0,
-    phone_number: "",
+    supply_id: "",
+    order_date: today,
+    ordered_by: "",
+    contact_person: "",
+    order_amount: 0,
+    amount_delivered: 0,
+    delivery_date: "",
     shop: "",
+    notes: "",
   });
 
-  // Fetch data from Supabase
   const fetchData = async () => {
     try {
       setLoading(true);
-      console.log("Fetching supplies from Supabase...");
       
-      // Fetch supplies
-      const { data: suppliesData, error: suppliesError } = await supabase
-        .from('supplies')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [ordersResponse, suppliesResponse, budgetsResponse] = await Promise.all([
+        supabase.from('orders').select('*').order('created_at', { ascending: false }),
+        supabase.from('supplies').select('*'),
+        supabase.from('weekly_budgets').select('*')
+      ]);
 
-      if (suppliesError) {
-        console.error('Supabase supplies error:', suppliesError);
-        throw suppliesError;
-      }
+      if (ordersResponse.error) throw ordersResponse.error;
+      if (suppliesResponse.error) throw suppliesResponse.error;
+      if (budgetsResponse.error) throw budgetsResponse.error;
 
-      console.log("Supplies data received:", suppliesData);
-      setSupplies(suppliesData || []);
+      setOrders(ordersResponse.data || []);
+      setSupplies(suppliesResponse.data || []);
+      setWeeklyBudgets(budgetsResponse.data || []);
 
-      // Extract unique shops from supplies
-      const uniqueShops = [...new Set(suppliesData?.map(s => s.shop).filter(Boolean) || [])];
-      console.log("Unique shops found:", uniqueShops);
+      const uniqueShops = [...new Set(suppliesResponse.data?.map(s => s.shop).filter(Boolean) || [])];
       setShops(uniqueShops);
       
-      // Set default shop in form if available
       if (uniqueShops.length > 0 && !formData.shop) {
         setFormData(prev => ({ ...prev, shop: uniqueShops[0] }));
-      } else if (uniqueShops.length === 0) {
-        // If no shops in database, set default to Shop A
-        setFormData(prev => ({ ...prev, shop: "A" }));
       }
 
     } catch (error: any) {
-      console.error('Error fetching supplies:', error);
-      toast.error(`Failed to load supplies: ${error.message}`);
+      console.error('Error fetching data:', error);
+      toast.error(`Failed to load data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -78,113 +85,194 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     fetchData();
   }, []);
 
-  const filteredSupplies = selectedShop === "All" 
-    ? supplies 
-    : supplies.filter(s => s.shop === selectedShop);
+  const filteredOrders = selectedShop === "All" 
+    ? orders 
+    : orders.filter(o => o.shop === selectedShop);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    try {
-      console.log("Submitting form data:", formData);
+    const supply = supplies.find(s => s.id === formData.supply_id);
+    if (!supply) {
+      toast.error("Please select a valid supply");
+      return;
+    }
 
-      if (editingSupply) {
-        // Update existing supply
+    const status: OrderStatus = 
+      formData.amount_delivered === 0 ? "Pending" :
+      formData.amount_delivered < formData.order_amount ? "Partial" : "Delivered";
+
+    try {
+      if (editingOrder) {
         const { error } = await supabase
-          .from('supplies')
+          .from('orders')
           .update({
-            name: formData.name,
-            amount: formData.amount,
-            phone_number: formData.phone_number,
+            supply_id: formData.supply_id,
+            supply_name: supply.name,
+            order_date: formData.order_date,
+            ordered_by: formData.ordered_by,
+            contact_person: formData.contact_person,
+            order_amount: formData.order_amount,
+            amount_delivered: formData.amount_delivered,
+            delivery_date: formData.delivery_date,
             shop: formData.shop,
+            notes: formData.notes,
+            status,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', editingSupply.id);
+          .eq('id', editingOrder.id);
 
-        if (error) {
-          console.error('Supabase update error:', error);
-          throw error;
-        }
-        toast.success("Supply updated successfully");
+        if (error) throw error;
+        toast.success("Order updated successfully");
       } else {
-        // Create new supply
-        const { data, error } = await supabase
-          .from('supplies')
+        const { error } = await supabase
+          .from('orders')
           .insert({
-            name: formData.name,
-            amount: formData.amount,
-            phone_number: formData.phone_number,
+            supply_id: formData.supply_id,
+            supply_name: supply.name,
+            order_date: formData.order_date,
+            ordered_by: formData.ordered_by,
+            contact_person: formData.contact_person,
+            order_amount: formData.order_amount,
+            amount_delivered: formData.amount_delivered,
+            delivery_date: formData.delivery_date,
             shop: formData.shop,
-          })
-          .select();
+            notes: formData.notes,
+            status,
+          });
 
-        if (error) {
-          console.error('Supabase insert error:', error);
-          throw error;
-        }
-        console.log("Insert successful, data:", data);
-        toast.success("Supply added successfully");
+        if (error) throw error;
+        toast.success("Order created successfully");
       }
 
-      // Refresh all data including shops list
       await fetchData();
-      
       setIsDialogOpen(false);
       resetForm();
     } catch (error: any) {
-      console.error('Error saving supply:', error);
-      toast.error(`Failed to save supply: ${error.message}`);
+      console.error('Error saving order:', error);
+      toast.error(`Failed to save order: ${error.message}`);
     }
   };
 
-  const handleEdit = (supply: Supply) => {
-    setEditingSupply(supply);
+  const handleEdit = (order: Order) => {
+    setEditingOrder(order);
     setFormData({
-      name: supply.name,
-      amount: supply.amount,
-      phone_number: supply.phone_number || "",
-      shop: supply.shop,
+      supply_id: order.supply_id,
+      order_date: order.order_date,
+      ordered_by: order.ordered_by,
+      contact_person: order.contact_person,
+      order_amount: order.order_amount,
+      amount_delivered: order.amount_delivered,
+      delivery_date: order.delivery_date,
+      shop: order.shop,
+      notes: order.notes || "",
     });
     setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this supply?")) return;
+    if (!confirm("Are you sure you want to delete this order?")) return;
 
     try {
       const { error } = await supabase
-        .from('supplies')
+        .from('orders')
         .delete()
         .eq('id', id);
 
-      if (error) {
-        console.error('Supabase delete error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      // Refresh data after deletion
       await fetchData();
-      toast.success("Supply deleted successfully");
+      toast.success("Order deleted successfully");
     } catch (error: any) {
-      console.error('Error deleting supply:', error);
-      toast.error(`Failed to delete supply: ${error.message}`);
+      console.error('Error deleting order:', error);
+      toast.error(`Failed to delete order: ${error.message}`);
     }
   };
 
   const resetForm = () => {
-    setEditingSupply(null);
+    setEditingOrder(null);
     setFormData({
-      name: "",
-      amount: 0,
-      phone_number: "",
-      shop: shops[0] || "A",
+      supply_id: "",
+      order_date: today,
+      ordered_by: "",
+      contact_person: "",
+      order_amount: 0,
+      amount_delivered: 0,
+      delivery_date: "",
+      shop: shops[0] || "",
+      notes: "",
     });
+  };
+
+  const handleBudgetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedShop === "All") {
+      toast.error("Please select a specific shop to set budget");
+      return;
+    }
+
+    try {
+      const now = new Date();
+      const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+      const weekStartStr = weekStart.toISOString().split('T')[0];
+
+      const { error } = await supabase
+        .from('weekly_budgets')
+        .upsert({
+          shop: selectedShop,
+          week_start_date: weekStartStr,
+          budget_amount: budgetAmount,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'shop,week_start_date'
+        });
+
+      if (error) throw error;
+
+      await fetchData();
+      setIsBudgetDialogOpen(false);
+      setBudgetAmount(0);
+      toast.success("Weekly budget set successfully");
+    } catch (error: any) {
+      console.error('Error setting budget:', error);
+      toast.error(`Failed to set budget: ${error.message}`);
+    }
+  };
+
+  const now = new Date();
+  const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+  
+  const currentBudget = selectedShop !== "All" 
+    ? weeklyBudgets.find(b => b.shop === selectedShop && b.week_start_date === weekStartStr)
+    : null;
+  
+  const weekOrders = filteredOrders.filter(o => {
+    const orderDate = new Date(o.order_date);
+    return orderDate >= new Date(weekStartStr);
+  });
+  
+  const totalOrderAmount = weekOrders.reduce((sum, o) => sum + o.order_amount, 0);
+  const budgetBalance = currentBudget ? currentBudget.budget_amount - totalOrderAmount : 0;
+  const isOverBudget = currentBudget && totalOrderAmount > currentBudget.budget_amount;
+
+  const pendingOrders = filteredOrders.filter(o => o.status === "Pending");
+  const partialOrders = filteredOrders.filter(o => o.status === "Partial");
+  const deliveredOrders = filteredOrders.filter(o => o.status === "Delivered");
+
+  const getStatusBadge = (status: OrderStatus) => {
+    const variants = {
+      Pending: "secondary" as const,
+      Partial: "default" as const,
+      Delivered: "default" as const,
+    };
+    return <Badge variant={variants[status]}>{status}</Badge>;
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Loading supplies...</div>
+        <div className="text-lg">Loading orders...</div>
       </div>
     );
   }
@@ -193,155 +281,295 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Supplies</h2>
-          <p className="text-muted-foreground">Manage inventory across all shops</p>
+          <h2 className="text-3xl font-bold tracking-tight">Orders</h2>
+          <p className="text-muted-foreground">Manage purchase orders and deliveries</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Supply
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>{editingSupply ? "Edit Supply" : "Add New Supply"}</DialogTitle>
-              <DialogDescription>
-                Enter supply details and inventory information
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-4">
+        <div className="flex gap-2">
+          <Dialog open={isBudgetDialogOpen} onOpenChange={setIsBudgetDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">Set Weekly Budget</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Set Weekly Budget</DialogTitle>
+                <DialogDescription>
+                  Set the budget for {selectedShop !== "All" ? selectedShop : "a shop"} for this week
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleBudgetSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Supply Name *</Label>
+                  <Label htmlFor="budget">Budget Amount (ZAR) *</Label>
                   <Input
-                    id="name"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Enter supply name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Amount *</Label>
-                  <Input
-                    id="amount"
+                    id="budget"
                     type="number"
+                    step="0.01"
                     required
-                    min="0"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                    placeholder="Enter amount"
+                    value={budgetAmount}
+                    onChange={(e) => setBudgetAmount(parseFloat(e.target.value))}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone_number">Phone Number *</Label>
-                  <Input
-                    id="phone_number"
-                    type="tel"
-                    required
-                    value={formData.phone_number}
-                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                    placeholder="Enter phone number"
-                  />
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsBudgetDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Set Budget</Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="shop">Shop *</Label>
-                  <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a shop" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {shops.map((shop) => (
-                        <SelectItem key={shop} value={shop}>{shop}</SelectItem>
-                      ))}
-                      {/* Always show the basic shop options */}
-                      {!shops.includes("A") && <SelectItem value="A">Shop A</SelectItem>}
-                      {!shops.includes("B") && <SelectItem value="B">Shop B</SelectItem>}
-                      {!shops.includes("C") && <SelectItem value="C">Shop C</SelectItem>}
-                    </SelectContent>
-                  </Select>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Order
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>{editingOrder ? "Edit Order" : "Create New Order"}</DialogTitle>
+                <DialogDescription>
+                  Enter order details and delivery information
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="supplyId">Select Supply *</Label>
+                    <Select value={formData.supply_id} onValueChange={(value) => setFormData({ ...formData, supply_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose supply" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {supplies.map((supply) => (
+                          <SelectItem key={supply.id} value={supply.id}>
+                            {supply.name} - {supply.shop}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="orderDate">Order Date *</Label>
+                    <Input
+                      id="orderDate"
+                      type="date"
+                      required
+                      value={formData.order_date}
+                      onChange={(e) => setFormData({ ...formData, order_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="orderedBy">Ordered By (Email) *</Label>
+                    <Input
+                      id="orderedBy"
+                      type="email"
+                      required
+                      value={formData.ordered_by}
+                      onChange={(e) => setFormData({ ...formData, ordered_by: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contactPerson">Contact Person *</Label>
+                    <Input
+                      id="contactPerson"
+                      type="text"
+                      required
+                      value={formData.contact_person}
+                      onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                      placeholder="Name of person you spoke to"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="orderAmount">Order Amount *</Label>
+                    <Input
+                      id="orderAmount"
+                      type="number"
+                      required
+                      value={formData.order_amount}
+                      onChange={(e) => setFormData({ ...formData, order_amount: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="amountDelivered">Amount Delivered</Label>
+                    <Input
+                      id="amountDelivered"
+                      type="number"
+                      value={formData.amount_delivered}
+                      onChange={(e) => setFormData({ ...formData, amount_delivered: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="deliveryDate">Expected Delivery *</Label>
+                    <Input
+                      id="deliveryDate"
+                      type="date"
+                      required
+                      value={formData.delivery_date}
+                      onChange={(e) => setFormData({ ...formData, delivery_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="shop">Shop *</Label>
+                    <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a shop" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {shops.map((shop) => (
+                          <SelectItem key={shop} value={shop}>{shop}</SelectItem>
+                        ))}
+                        <SelectItem value="A">Shop A</SelectItem>
+                        <SelectItem value="B">Shop B</SelectItem>
+                        <SelectItem value="C">Shop C</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingSupply ? "Update" : "Add"} Supply
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    {editingOrder ? "Update" : "Create"} Order
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+      {currentBudget && selectedShop !== "All" && (
+        <Card className={isOverBudget ? "border-red-200" : "border-green-200"}>
           <CardHeader>
-            <CardTitle>Total Supplies</CardTitle>
-            <CardDescription>Items in inventory</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              {isOverBudget ? (
+                <TrendingDown className="h-5 w-5 text-red-600" />
+              ) : (
+                <TrendingUp className="h-5 w-5 text-green-600" />
+              )}
+              Weekly Budget Status
+            </CardTitle>
+            <CardDescription>Current week budget tracking for {selectedShop}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{filteredSupplies.length}</div>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Budget</p>
+                <p className="text-2xl font-bold">{formatCurrency(currentBudget.budget_amount)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Orders Total</p>
+                <p className="text-2xl font-bold">{formatCurrency(totalOrderAmount)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Balance</p>
+                <p className={`text-2xl font-bold ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>
+                  {formatCurrency(Math.abs(budgetBalance))}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Status</p>
+                <Badge variant={isOverBudget ? "destructive" : "default"} className="text-base">
+                  {isOverBudget ? "Over Budget" : "Under Budget"}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending Orders</CardTitle>
+            <CardDescription>Awaiting delivery</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{pendingOrders.length}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Total Amount</CardTitle>
-            <CardDescription>Combined quantity</CardDescription>
+            <CardTitle>Partial Deliveries</CardTitle>
+            <CardDescription>Incomplete orders</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">
-              {filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0)}
-            </div>
+            <div className="text-3xl font-bold">{partialOrders.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Completed</CardTitle>
+            <CardDescription>Fully delivered</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{deliveredOrders.length}</div>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Supply List</CardTitle>
+          <CardTitle>Order List</CardTitle>
           <CardDescription>
-            {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} inventory
+            {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>Supply</TableHead>
+                <TableHead>Order Date</TableHead>
+                <TableHead>Ordered By</TableHead>
+                <TableHead>Contact Person</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Phone Number</TableHead>
+                <TableHead>Delivered</TableHead>
+                <TableHead>Delivery Date</TableHead>
                 <TableHead>Shop</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredSupplies.map((supply) => (
-                <TableRow key={supply.id}>
-                  <TableCell className="font-medium">{supply.name}</TableCell>
-                  <TableCell>{supply.amount}</TableCell>
-                  <TableCell>{supply.phone_number || "N/A"}</TableCell>
+              {filteredOrders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">{order.supply_name}</TableCell>
+                  <TableCell>{order.order_date}</TableCell>
+                  <TableCell>{order.ordered_by}</TableCell>
+                  <TableCell>{order.contact_person}</TableCell>
+                  <TableCell>{order.order_amount}</TableCell>
+                  <TableCell>{order.amount_delivered}</TableCell>
+                  <TableCell>{order.delivery_date}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{supply.shop}</Badge>
+                    <Badge variant="outline">{order.shop}</Badge>
                   </TableCell>
+                  <TableCell>{getStatusBadge(order.status)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleEdit(supply)}
+                        onClick={() => handleEdit(order)}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDelete(supply.id)}
+                        onClick={() => handleDelete(order.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -351,9 +579,9 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
               ))}
             </TableBody>
           </Table>
-          {filteredSupplies.length === 0 && (
+          {filteredOrders.length === 0 && (
             <div className="py-12 text-center text-muted-foreground">
-              No supplies found. Add your first supply to get started.
+              No orders found. Create your first order to get started.
             </div>
           )}
         </CardContent>
@@ -362,4 +590,4 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
   );
 };
 
-export default Supplies;
+export default Orders;
