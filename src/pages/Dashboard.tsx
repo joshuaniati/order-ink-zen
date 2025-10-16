@@ -1,18 +1,73 @@
 import { Shop } from "@/types";
-import { getSupplies, getOrders, getIncomeRecords } from "@/lib/storage";
 import { formatCurrency } from "@/lib/currency";
 import MetricCard from "@/components/dashboard/MetricCard";
-import { Package, ShoppingCart, DollarSign, AlertTriangle, TrendingUp } from "lucide-react";
+import { Package, ShoppingCart, DollarSign, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from 'react';
+import type { Tables } from "@/integrations/supabase/types";
 
 interface DashboardProps {
   selectedShop: Shop;
 }
 
+type Supply = Tables<'supplies'>;
+type Order = Tables<'orders'>;
+type IncomeRecord = Tables<'income_records'>;
+
 const Dashboard = ({ selectedShop }: DashboardProps) => {
-  const supplies = getSupplies();
-  const orders = getOrders();
-  const incomeRecords = getIncomeRecords();
+  const [supplies, setSupplies] = useState<Supply[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch data from Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch supplies
+        const { data: suppliesData, error: suppliesError } = await supabase
+          .from('supplies')
+          .select('*');
+        
+        // Fetch orders
+        const { data: ordersData, error: ordersError } = await supabase
+          .from('orders')
+          .select('*');
+        
+        // Fetch income records
+        const { data: incomeData, error: incomeError } = await supabase
+          .from('income_records')
+          .select('*');
+
+        if (suppliesError) {
+          console.error('Error fetching supplies:', suppliesError);
+        } else {
+          setSupplies(suppliesData || []);
+        }
+
+        if (ordersError) {
+          console.error('Error fetching orders:', ordersError);
+        } else {
+          setOrders(ordersData || []);
+        }
+
+        if (incomeError) {
+          console.error('Error fetching income:', incomeError);
+        } else {
+          setIncomeRecords(incomeData || []);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   // Filter by shop
   const filteredSupplies = selectedShop === "All" 
@@ -28,9 +83,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     : incomeRecords.filter(i => i.shop === selectedShop);
 
   // Calculate metrics
-  const lowStockItems: any[] = []; // Removed low stock tracking as Supply no longer has minStockLevel
   const pendingOrders = filteredOrders.filter(o => o.status === "Pending");
-  const stockValue = 0; // Removed stock value calculation as Supply no longer has pricePerUnit
   
   // Today's income
   const today = new Date().toISOString().split('T')[0];
@@ -45,6 +98,14 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     .filter(i => new Date(i.date) >= weekAgo)
     .reduce((sum, i) => sum + i.netIncome, 0);
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading dashboard...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -57,21 +118,21 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Total Supplies"
-          value={filteredSupplies.length}
+          value={filteredSupplies.length.toString()}
           description="Items in inventory"
           icon={Package}
           variant="default"
         />
         <MetricCard
           title="Total Amount"
-          value={filteredSupplies.reduce((sum, s) => sum + s.amount, 0)}
+          value={filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0).toString()}
           description="Combined quantity"
           icon={Package}
           variant="default"
         />
         <MetricCard
           title="Pending Orders"
-          value={pendingOrders.length}
+          value={pendingOrders.length.toString()}
           description="Awaiting delivery"
           icon={ShoppingCart}
           variant="default"
@@ -94,7 +155,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
           <CardContent>
             <div className="text-3xl font-bold">{filteredSupplies.length}</div>
             <p className="text-sm text-muted-foreground mt-2">
-              Total amount: {filteredSupplies.reduce((sum, s) => sum + s.amount, 0)}
+              Total amount: {filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0)}
             </p>
           </CardContent>
         </Card>
