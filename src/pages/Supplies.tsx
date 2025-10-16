@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { Shop, Supply } from "@/types";
-import { getSupplies, saveSupply, deleteSupply, getShops } from "@/lib/storage";
+import { useState, useEffect } from "react";
+import { Shop } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,41 +10,122 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 
 interface SuppliesProps {
   selectedShop: Shop;
 }
 
+type Supply = Tables<'supplies'>;
+
 const Supplies = ({ selectedShop }: SuppliesProps) => {
-  const [supplies, setSupplies] = useState<Supply[]>(getSupplies());
+  const [supplies, setSupplies] = useState<Supply[]>([]);
+  const [shops, setShops] = useState<string[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSupply, setEditingSupply] = useState<Supply | null>(null);
-  const shops = getShops();
+  const [loading, setLoading] = useState(true);
   
   const [formData, setFormData] = useState({
     name: "",
     amount: 0,
-    phoneNumber: "",
-    shop: shops[0] || "",
+    phone_number: "",
+    shop: "",
   });
+
+  // Fetch data from Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch supplies
+        const { data: suppliesData, error: suppliesError } = await supabase
+          .from('supplies')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (suppliesError) throw suppliesError;
+
+        setSupplies(suppliesData || []);
+
+        // Extract unique shops from supplies
+        const uniqueShops = [...new Set(suppliesData?.map(s => s.shop) || [])];
+        setShops(uniqueShops);
+        
+        // Set default shop in form if available
+        if (uniqueShops.length > 0 && !formData.shop) {
+          setFormData(prev => ({ ...prev, shop: uniqueShops[0] }));
+        }
+
+      } catch (error) {
+        console.error('Error fetching supplies:', error);
+        toast.error('Failed to load supplies');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const filteredSupplies = selectedShop === "All" 
     ? supplies 
     : supplies.filter(s => s.shop === selectedShop);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const supply: Supply = {
-      id: editingSupply?.id || crypto.randomUUID(),
-      ...formData,
-      createdAt: editingSupply?.createdAt || new Date().toISOString(),
-    };
     
-    saveSupply(supply);
-    setSupplies(getSupplies());
-    setIsDialogOpen(false);
-    resetForm();
-    toast.success(editingSupply ? "Supply updated" : "Supply added");
+    try {
+      if (editingSupply) {
+        // Update existing supply
+        const { error } = await supabase
+          .from('supplies')
+          .update({
+            name: formData.name,
+            amount: formData.amount,
+            phone_number: formData.phone_number,
+            shop: formData.shop,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingSupply.id);
+
+        if (error) throw error;
+        toast.success("Supply updated successfully");
+      } else {
+        // Create new supply
+        const { error } = await supabase
+          .from('supplies')
+          .insert({
+            name: formData.name,
+            amount: formData.amount,
+            phone_number: formData.phone_number,
+            shop: formData.shop,
+          });
+
+        if (error) throw error;
+        toast.success("Supply added successfully");
+      }
+
+      // Refresh supplies
+      const { data: newSupplies, error } = await supabase
+        .from('supplies')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setSupplies(newSupplies || []);
+      
+      // Update shops list
+      const uniqueShops = [...new Set(newSupplies?.map(s => s.shop) || [])];
+      setShops(uniqueShops);
+      
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error saving supply:', error);
+      toast.error('Failed to save supply');
+    }
   };
 
   const handleEdit = (supply: Supply) => {
@@ -53,17 +133,28 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     setFormData({
       name: supply.name,
       amount: supply.amount,
-      phoneNumber: supply.phoneNumber,
+      phone_number: supply.phone_number,
       shop: supply.shop,
     });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this supply?")) {
-      deleteSupply(id);
-      setSupplies(getSupplies());
-      toast.success("Supply deleted");
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this supply?")) return;
+
+    try {
+      const { error } = await supabase
+        .from('supplies')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setSupplies(supplies.filter(supply => supply.id !== id));
+      toast.success("Supply deleted successfully");
+    } catch (error) {
+      console.error('Error deleting supply:', error);
+      toast.error('Failed to delete supply');
     }
   };
 
@@ -72,10 +163,18 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     setFormData({
       name: "",
       amount: 0,
-      phoneNumber: "",
+      phone_number: "",
       shop: shops[0] || "",
     });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading supplies...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -123,13 +222,13 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phoneNumber">Phone Number *</Label>
+                  <Label htmlFor="phone_number">Phone Number *</Label>
                   <Input
-                    id="phoneNumber"
+                    id="phone_number"
                     type="tel"
                     required
-                    value={formData.phoneNumber}
-                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                    value={formData.phone_number}
+                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -175,7 +274,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
             <CardDescription>Combined quantity</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{filteredSupplies.reduce((sum, s) => sum + s.amount, 0)}</div>
+            <div className="text-3xl font-bold">{filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0)}</div>
           </CardContent>
         </Card>
       </div>
@@ -203,7 +302,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                 <TableRow key={supply.id}>
                   <TableCell className="font-medium">{supply.name}</TableCell>
                   <TableCell>{supply.amount}</TableCell>
-                  <TableCell>{supply.phoneNumber}</TableCell>
+                  <TableCell>{supply.phone_number}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{supply.shop}</Badge>
                   </TableCell>
