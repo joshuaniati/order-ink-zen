@@ -11,60 +11,66 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
 
 interface SuppliesProps {
   selectedShop: Shop;
 }
 
-type Supply = Tables<'supplies'>;
+interface Supply {
+  id: string;
+  name: string;
+  amount: number;
+  phone_number?: string;
+  shop: string;
+  created_at: string;
+  updated_at: string;
+}
 
 const Supplies = ({ selectedShop }: SuppliesProps) => {
   const [supplies, setSupplies] = useState<Supply[]>([]);
-  const [shops, setShops] = useState<string[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSupply, setEditingSupply] = useState<Supply | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     name: "",
     amount: 0,
     phone_number: "",
-    shop: "",
+    shop: "A",
   });
 
-  const fetchData = async () => {
+  const fetchSupplies = async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      const { data: suppliesData, error } = await supabase
+      console.log("Fetching supplies...");
+      
+      const { data, error } = await supabase
         .from('supplies')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-
-      setSupplies(suppliesData || []);
-
-      const uniqueShops = [...new Set(suppliesData?.map(s => s.shop).filter(Boolean) || [])];
-      setShops(uniqueShops);
-      
-      if (uniqueShops.length > 0 && !formData.shop) {
-        setFormData(prev => ({ ...prev, shop: uniqueShops[0] }));
-      } else if (uniqueShops.length === 0) {
-        setFormData(prev => ({ ...prev, shop: "A" }));
+      if (error) {
+        console.error("Supabase error:", error);
+        setError(error.message);
+        return;
       }
 
-    } catch (error: any) {
-      console.error('Error fetching supplies:', error);
-      toast.error(`Failed to load supplies: ${error.message}`);
+      console.log("Supplies fetched:", data);
+      setSupplies(data || []);
+      
+    } catch (err: any) {
+      console.error("Error:", err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchSupplies();
   }, []);
 
   const filteredSupplies = selectedShop === "All" 
@@ -103,7 +109,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
         toast.success("Supply added successfully");
       }
 
-      await fetchData();
+      await fetchSupplies();
       setIsDialogOpen(false);
       resetForm();
     } catch (error: any) {
@@ -134,7 +140,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
 
       if (error) throw error;
 
-      await fetchData();
+      await fetchSupplies();
       toast.success("Supply deleted successfully");
     } catch (error: any) {
       console.error('Error deleting supply:', error);
@@ -148,9 +154,45 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
       name: "",
       amount: 0,
       phone_number: "",
-      shop: shops[0] || "A",
+      shop: "A",
     });
   };
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Supplies</h2>
+            <p className="text-muted-foreground">Manage inventory across all shops</p>
+          </div>
+        </div>
+        
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">Setup Required</CardTitle>
+            <CardDescription>
+              The database tables need to be created first.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Error: {error}
+            </p>
+            <div className="space-y-2 text-sm">
+              <p>To set up the database:</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Go to your Supabase dashboard</li>
+                <li>Open the SQL Editor</li>
+                <li>Run the table creation SQL</li>
+                <li>Refresh this page</li>
+              </ol>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -167,87 +209,82 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
           <h2 className="text-3xl font-bold tracking-tight">Supplies</h2>
           <p className="text-muted-foreground">Manage inventory across all shops</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Supply
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>{editingSupply ? "Edit Supply" : "Add New Supply"}</DialogTitle>
-              <DialogDescription>
-                Enter supply details and inventory information
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Supply Name *</Label>
-                  <Input
-                    id="name"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Enter supply name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Amount *</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    required
-                    min="0"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                    placeholder="Enter amount"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone_number">Phone Number *</Label>
-                  <Input
-                    id="phone_number"
-                    type="tel"
-                    required
-                    value={formData.phone_number}
-                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                    placeholder="Enter phone number"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="shop">Shop *</Label>
-                  <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a shop" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {shops.map((shop) => (
-                        <SelectItem key={shop} value={shop}>{shop}</SelectItem>
-                      ))}
-                      {!shops.includes("A") && <SelectItem value="A">Shop A</SelectItem>}
-                      {!shops.includes("B") && <SelectItem value="B">Shop B</SelectItem>}
-                      {!shops.includes("C") && <SelectItem value="C">Shop C</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingSupply ? "Update" : "Add"} Supply
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setIsDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Supply
+        </Button>
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        setIsDialogOpen(open);
+        if (!open) resetForm();
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingSupply ? "Edit Supply" : "Add New Supply"}</DialogTitle>
+            <DialogDescription>
+              Enter supply details and inventory information
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Supply Name *</Label>
+                <Input
+                  id="name"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter supply name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount *</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  required
+                  min="0"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                  placeholder="Enter amount"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone_number">Phone Number</Label>
+                <Input
+                  id="phone_number"
+                  type="tel"
+                  value={formData.phone_number}
+                  onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                  placeholder="Enter phone number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="shop">Shop *</Label>
+                <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A">Shop A</SelectItem>
+                    <SelectItem value="B">Shop B</SelectItem>
+                    <SelectItem value="C">Shop C</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                {editingSupply ? "Update" : "Add"} Supply
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -280,51 +317,56 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Phone Number</TableHead>
-                <TableHead>Shop</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredSupplies.map((supply) => (
-                <TableRow key={supply.id}>
-                  <TableCell className="font-medium">{supply.name}</TableCell>
-                  <TableCell>{supply.amount}</TableCell>
-                  <TableCell>{supply.phone_number || "N/A"}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{supply.shop}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(supply)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(supply.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredSupplies.length === 0 && (
-            <div className="py-12 text-center text-muted-foreground">
-              No supplies found. Add your first supply to get started.
+          {supplies.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground mb-4">No supplies found.</p>
+              <Button onClick={() => setIsDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Your First Supply
+              </Button>
             </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Phone Number</TableHead>
+                  <TableHead>Shop</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSupplies.map((supply) => (
+                  <TableRow key={supply.id}>
+                    <TableCell className="font-medium">{supply.name}</TableCell>
+                    <TableCell>{supply.amount}</TableCell>
+                    <TableCell>{supply.phone_number || "N/A"}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{supply.shop}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(supply)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(supply.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
