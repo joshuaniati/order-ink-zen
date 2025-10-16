@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { Shop, DailyIncome } from "@/types";
-import { getIncomeRecords, saveIncomeRecord, deleteIncomeRecord } from "@/lib/storage";
+import { useState, useEffect } from "react";
+import { Shop } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,65 +11,145 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 
 interface CashUpProps {
   selectedShop: Shop;
 }
 
+type IncomeRecord = Tables<'income_records'>;
+
 const CashUp = ({ selectedShop }: CashUpProps) => {
-  const [records, setRecords] = useState<DailyIncome[]>(getIncomeRecords());
+  const [records, setRecords] = useState<IncomeRecord[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<DailyIncome | null>(null);
+  const [editingRecord, setEditingRecord] = useState<IncomeRecord | null>(null);
+  const [loading, setLoading] = useState(true);
   
   const today = new Date().toISOString().split('T')[0];
   
   const [formData, setFormData] = useState({
     date: today,
     shop: "A" as Shop,
-    dailyIncome: 0,
+    daily_income: 0,
     expenses: 0,
     notes: "",
   });
+
+  // Fetch data from Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        const { data: recordsData, error } = await supabase
+          .from('income_records')
+          .select('*')
+          .order('date', { ascending: false });
+
+        if (error) throw error;
+
+        setRecords(recordsData || []);
+      } catch (error) {
+        console.error('Error fetching income records:', error);
+        toast.error('Failed to load income records');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const filteredRecords = selectedShop === "All" 
     ? records 
     : records.filter(r => r.shop === selectedShop);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const netIncome = formData.dailyIncome - formData.expenses;
-    const record: DailyIncome = {
-      id: editingRecord?.id || crypto.randomUUID(),
-      netIncome,
-      ...formData,
-      createdAt: editingRecord?.createdAt || new Date().toISOString(),
-    };
+    const net_income = formData.daily_income - formData.expenses;
     
-    saveIncomeRecord(record);
-    setRecords(getIncomeRecords());
-    setIsDialogOpen(false);
-    resetForm();
-    toast.success(editingRecord ? "Record updated" : "Cash up recorded");
+    try {
+      if (editingRecord) {
+        // Update existing record
+        const { error } = await supabase
+          .from('income_records')
+          .update({
+            date: formData.date,
+            shop: formData.shop,
+            daily_income: formData.daily_income,
+            expenses: formData.expenses,
+            net_income,
+            notes: formData.notes,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingRecord.id);
+
+        if (error) throw error;
+        toast.success("Record updated successfully");
+      } else {
+        // Create new record
+        const { error } = await supabase
+          .from('income_records')
+          .insert({
+            date: formData.date,
+            shop: formData.shop,
+            daily_income: formData.daily_income,
+            expenses: formData.expenses,
+            net_income,
+            notes: formData.notes,
+          });
+
+        if (error) throw error;
+        toast.success("Cash up recorded successfully");
+      }
+
+      // Refresh records
+      const { data: newRecords, error } = await supabase
+        .from('income_records')
+        .select('*')
+        .order('date', { ascending: false });
+      
+      if (error) throw error;
+      setRecords(newRecords || []);
+      
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error saving income record:', error);
+      toast.error('Failed to save record');
+    }
   };
 
-  const handleEdit = (record: DailyIncome) => {
+  const handleEdit = (record: IncomeRecord) => {
     setEditingRecord(record);
     setFormData({
       date: record.date,
       shop: record.shop,
-      dailyIncome: record.dailyIncome,
+      daily_income: record.daily_income,
       expenses: record.expenses,
       notes: record.notes || "",
     });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this record?")) {
-      deleteIncomeRecord(id);
-      setRecords(getIncomeRecords());
-      toast.success("Record deleted");
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this record?")) return;
+
+    try {
+      const { error } = await supabase
+        .from('income_records')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setRecords(records.filter(record => record.id !== id));
+      toast.success("Record deleted successfully");
+    } catch (error) {
+      console.error('Error deleting record:', error);
+      toast.error('Failed to delete record');
     }
   };
 
@@ -79,7 +158,7 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
     setFormData({
       date: today,
       shop: "A",
-      dailyIncome: 0,
+      daily_income: 0,
       expenses: 0,
       notes: "",
     });
@@ -87,7 +166,7 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
 
   // Today's metrics
   const todayRecords = filteredRecords.filter(r => r.date === today);
-  const todayIncome = todayRecords.reduce((sum, r) => sum + r.dailyIncome, 0);
+  const todayIncome = todayRecords.reduce((sum, r) => sum + r.daily_income, 0);
   const todayExpenses = todayRecords.reduce((sum, r) => sum + r.expenses, 0);
   const todayNet = todayIncome - todayExpenses;
 
@@ -95,9 +174,17 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 7);
   const weeklyRecords = filteredRecords.filter(r => new Date(r.date) >= weekAgo);
-  const weeklyIncome = weeklyRecords.reduce((sum, r) => sum + r.dailyIncome, 0);
+  const weeklyIncome = weeklyRecords.reduce((sum, r) => sum + r.daily_income, 0);
   const weeklyExpenses = weeklyRecords.reduce((sum, r) => sum + r.expenses, 0);
   const weeklyNet = weeklyIncome - weeklyExpenses;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading cash up records...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -148,14 +235,14 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dailyIncome">Daily Income (ZAR) *</Label>
+                <Label htmlFor="daily_income">Daily Income (ZAR) *</Label>
                 <Input
-                  id="dailyIncome"
+                  id="daily_income"
                   type="number"
                   step="0.01"
                   required
-                  value={formData.dailyIncome}
-                  onChange={(e) => setFormData({ ...formData, dailyIncome: parseFloat(e.target.value) })}
+                  value={formData.daily_income}
+                  onChange={(e) => setFormData({ ...formData, daily_income: parseFloat(e.target.value) })}
                 />
               </div>
               <div className="space-y-2">
@@ -172,7 +259,7 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               <div className="space-y-2">
                 <Label>Net Income (Auto-calculated)</Label>
                 <div className="text-2xl font-bold">
-                  {formatCurrency(formData.dailyIncome - formData.expenses)}
+                  {formatCurrency(formData.daily_income - formData.expenses)}
                 </div>
               </div>
               <div className="space-y-2">
@@ -205,7 +292,7 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               <CardDescription>Total sales today</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-success">{formatCurrency(todayIncome)}</div>
+              <div className="text-3xl font-bold text-green-600">{formatCurrency(todayIncome)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -214,7 +301,7 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               <CardDescription>Operational costs</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-destructive">{formatCurrency(todayExpenses)}</div>
+              <div className="text-3xl font-bold text-red-600">{formatCurrency(todayExpenses)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -223,7 +310,7 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               <CardDescription>Profit/Loss today</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-bold ${todayNet >= 0 ? 'text-success' : 'text-destructive'}`}>
+              <div className={`text-3xl font-bold ${todayNet >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {formatCurrency(todayNet)}
               </div>
             </CardContent>
@@ -255,7 +342,7 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               <CardTitle>Weekly Net</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${weeklyNet >= 0 ? 'text-success' : 'text-destructive'}`}>
+              <div className={`text-2xl font-bold ${weeklyNet >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {formatCurrency(weeklyNet)}
               </div>
             </CardContent>
@@ -284,38 +371,36 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRecords
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell className="font-medium">{record.date}</TableCell>
-                    <TableCell>Shop {record.shop}</TableCell>
-                    <TableCell className="text-success">{formatCurrency(record.dailyIncome)}</TableCell>
-                    <TableCell className="text-destructive">{formatCurrency(record.expenses)}</TableCell>
-                    <TableCell className={record.netIncome >= 0 ? 'text-success font-bold' : 'text-destructive font-bold'}>
-                      {formatCurrency(record.netIncome)}
-                    </TableCell>
-                    <TableCell>{record.notes}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(record)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(record.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+              {filteredRecords.map((record) => (
+                <TableRow key={record.id}>
+                  <TableCell className="font-medium">{record.date}</TableCell>
+                  <TableCell>Shop {record.shop}</TableCell>
+                  <TableCell className="text-green-600">{formatCurrency(record.daily_income)}</TableCell>
+                  <TableCell className="text-red-600">{formatCurrency(record.expenses)}</TableCell>
+                  <TableCell className={record.net_income >= 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                    {formatCurrency(record.net_income)}
+                  </TableCell>
+                  <TableCell className="max-w-xs truncate">{record.notes}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(record)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(record.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
           {filteredRecords.length === 0 && (
