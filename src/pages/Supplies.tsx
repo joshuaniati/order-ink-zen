@@ -37,6 +37,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      console.log("Fetching supplies from Supabase...");
       
       // Fetch supplies
       const { data: suppliesData, error: suppliesError } = await supabase
@@ -44,22 +45,30 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (suppliesError) throw suppliesError;
+      if (suppliesError) {
+        console.error('Supabase supplies error:', suppliesError);
+        throw suppliesError;
+      }
 
+      console.log("Supplies data received:", suppliesData);
       setSupplies(suppliesData || []);
 
       // Extract unique shops from supplies
-      const uniqueShops = [...new Set(suppliesData?.map(s => s.shop) || [])];
+      const uniqueShops = [...new Set(suppliesData?.map(s => s.shop).filter(Boolean) || [])];
+      console.log("Unique shops found:", uniqueShops);
       setShops(uniqueShops);
       
       // Set default shop in form if available
       if (uniqueShops.length > 0 && !formData.shop) {
         setFormData(prev => ({ ...prev, shop: uniqueShops[0] }));
+      } else if (uniqueShops.length === 0) {
+        // If no shops in database, set default to Shop A
+        setFormData(prev => ({ ...prev, shop: "A" }));
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching supplies:', error);
-      toast.error('Failed to load supplies');
+      toast.error(`Failed to load supplies: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -77,6 +86,8 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     e.preventDefault();
     
     try {
+      console.log("Submitting form data:", formData);
+
       if (editingSupply) {
         // Update existing supply
         const { error } = await supabase
@@ -90,7 +101,10 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
           })
           .eq('id', editingSupply.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase update error:', error);
+          throw error;
+        }
         toast.success("Supply updated successfully");
       } else {
         // Create new supply
@@ -104,7 +118,11 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
           })
           .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase insert error:', error);
+          throw error;
+        }
+        console.log("Insert successful, data:", data);
         toast.success("Supply added successfully");
       }
 
@@ -124,7 +142,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     setFormData({
       name: supply.name,
       amount: supply.amount,
-      phone_number: supply.phone_number,
+      phone_number: supply.phone_number || "",
       shop: supply.shop,
     });
     setIsDialogOpen(true);
@@ -139,7 +157,10 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase delete error:', error);
+        throw error;
+      }
 
       // Refresh data after deletion
       await fetchData();
@@ -156,7 +177,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
       name: "",
       amount: 0,
       phone_number: "",
-      shop: shops[0] || "",
+      shop: shops[0] || "A",
     });
   };
 
@@ -201,6 +222,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Enter supply name"
                   />
                 </div>
                 <div className="space-y-2">
@@ -209,8 +231,10 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                     id="amount"
                     type="number"
                     required
+                    min="0"
                     value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                    placeholder="Enter amount"
                   />
                 </div>
                 <div className="space-y-2">
@@ -221,6 +245,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                     required
                     value={formData.phone_number}
                     onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                    placeholder="Enter phone number"
                   />
                 </div>
                 <div className="space-y-2">
@@ -234,9 +259,9 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                         <SelectItem key={shop} value={shop}>{shop}</SelectItem>
                       ))}
                       {/* Always show the basic shop options */}
-                      <SelectItem value="A">Shop A</SelectItem>
-                      <SelectItem value="B">Shop B</SelectItem>
-                      <SelectItem value="C">Shop C</SelectItem>
+                      {!shops.includes("A") && <SelectItem value="A">Shop A</SelectItem>}
+                      {!shops.includes("B") && <SelectItem value="B">Shop B</SelectItem>}
+                      {!shops.includes("C") && <SelectItem value="C">Shop C</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -270,7 +295,9 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
             <CardDescription>Combined quantity</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0)}</div>
+            <div className="text-3xl font-bold">
+              {filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0)}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -298,7 +325,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                 <TableRow key={supply.id}>
                   <TableCell className="font-medium">{supply.name}</TableCell>
                   <TableCell>{supply.amount}</TableCell>
-                  <TableCell>{supply.phone_number}</TableCell>
+                  <TableCell>{supply.phone_number || "N/A"}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{supply.shop}</Badge>
                   </TableCell>
