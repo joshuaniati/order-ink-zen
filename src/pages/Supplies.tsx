@@ -25,6 +25,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
   const [formData, setFormData] = useState({
     name: "",
     amount: 0,
+    phoneNumber: "",
     shop: shops[0] || "",
   });
 
@@ -52,6 +53,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     setFormData({
       name: supply.name,
       amount: supply.amount,
+      phoneNumber: supply.phoneNumber,
       shop: supply.shop,
     });
     setIsDialogOpen(true);
@@ -70,6 +72,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     setFormData({
       name: "",
       amount: 0,
+      phoneNumber: "",
       shop: shops[0] || "",
     });
   };
@@ -117,6 +120,16 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                     required
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber">Phone Number *</Label>
+                  <Input
+                    id="phoneNumber"
+                    type="tel"
+                    required
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -180,6 +193,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Amount</TableHead>
+                <TableHead>Phone Number</TableHead>
                 <TableHead>Shop</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -189,6 +203,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                 <TableRow key={supply.id}>
                   <TableCell className="font-medium">{supply.name}</TableCell>
                   <TableCell>{supply.amount}</TableCell>
+                  <TableCell>{supply.phoneNumber}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{supply.shop}</Badge>
                   </TableCell>

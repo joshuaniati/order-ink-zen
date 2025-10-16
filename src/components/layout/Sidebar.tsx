@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { getShops } from "@/lib/storage";
 import { 
   LayoutDashboard, 
   Package, 
@@ -9,19 +10,25 @@ import {
   Store
 } from "lucide-react";
 
-const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Supplies", href: "/supplies", icon: Package },
-  { name: "Orders", href: "/orders", icon: ShoppingCart },
-  { name: "Daily Cash Up", href: "/cash-up", icon: DollarSign },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "Shop A", href: "/shop/A", icon: Store },
-  { name: "Shop B", href: "/shop/B", icon: Store },
-  { name: "Shop C", href: "/shop/C", icon: Store },
-];
-
 const Sidebar = () => {
   const location = useLocation();
+  const shops = getShops();
+
+  const baseNavigation = [
+    { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Supplies", href: "/supplies", icon: Package },
+    { name: "Orders", href: "/orders", icon: ShoppingCart },
+    { name: "Daily Cash Up", href: "/cash-up", icon: DollarSign },
+    { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  ];
+
+  const shopNavigation = shops.map(shop => ({
+    name: shop,
+    href: `/shop/${encodeURIComponent(shop)}`,
+    icon: Store
+  }));
+
+  const navigation = [...baseNavigation, ...shopNavigation];
 
   return (
     <aside className="w-64 border-r bg-card">

@@ -4,6 +4,7 @@ export interface Supply {
   id: string;
   name: string;
   amount: number;
+  phoneNumber: string;
   shop: Shop;
   createdAt: string;
 }
@@ -24,6 +25,7 @@ export interface Order {
   supplyName: string;
   orderDate: string;
   orderedBy: string;
+  contactPerson: string;
   orderAmount: number;
   amountDelivered: number;
   deliveryDate: string;

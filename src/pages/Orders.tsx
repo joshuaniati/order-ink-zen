@@ -33,6 +33,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     supplyId: "",
     orderDate: today,
     orderedBy: "",
+    contactPerson: "",
     orderAmount: 0,
     amountDelivered: 0,
     deliveryDate: "",
@@ -74,6 +75,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       supplyId: order.supplyId,
       orderDate: order.orderDate,
       orderedBy: order.orderedBy,
+      contactPerson: order.contactPerson,
       orderAmount: order.orderAmount,
       amountDelivered: order.amountDelivered,
       deliveryDate: order.deliveryDate,
@@ -97,6 +99,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       supplyId: "",
       orderDate: today,
       orderedBy: "",
+      contactPerson: "",
       orderAmount: 0,
       amountDelivered: 0,
       deliveryDate: "",
@@ -254,6 +257,17 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="contactPerson">Contact Person *</Label>
+                  <Input
+                    id="contactPerson"
+                    type="text"
+                    required
+                    value={formData.contactPerson}
+                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                    placeholder="Name of person you spoke to"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="orderAmount">Order Amount *</Label>
                   <Input
                     id="orderAmount"
@@ -402,6 +416,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <TableHead>Supply</TableHead>
                 <TableHead>Order Date</TableHead>
                 <TableHead>Ordered By</TableHead>
+                <TableHead>Contact Person</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Delivered</TableHead>
                 <TableHead>Delivery Date</TableHead>
@@ -416,6 +431,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   <TableCell className="font-medium">{order.supplyName}</TableCell>
                   <TableCell>{order.orderDate}</TableCell>
                   <TableCell>{order.orderedBy}</TableCell>
+                  <TableCell>{order.contactPerson}</TableCell>
                   <TableCell>{order.orderAmount}</TableCell>
                   <TableCell>{order.amountDelivered}</TableCell>
                   <TableCell>{order.deliveryDate}</TableCell>
