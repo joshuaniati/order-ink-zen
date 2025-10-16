@@ -6,9 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -19,8 +17,8 @@ interface SuppliesProps {
 const Supplies = ({ selectedShop }: SuppliesProps) => {
   const [supplies, setSupplies] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingSupply, setEditingSupply] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [tablesExist, setTablesExist] = useState<boolean | null>(null);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -29,28 +27,48 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     shop: "A",
   });
 
+  // First, check if tables exist
+  const checkTables = async () => {
+    try {
+      const { data, error } = await supabase.from('supplies').select('count');
+      
+      if (error) {
+        console.error("Table check failed:", error);
+        setTablesExist(false);
+        return false;
+      }
+      
+      setTablesExist(true);
+      return true;
+    } catch (err) {
+      console.error("Table check error:", err);
+      setTablesExist(false);
+      return false;
+    }
+  };
+
   const fetchSupplies = async () => {
     try {
       setLoading(true);
-      console.log("Starting to fetch supplies...");
       
+      const tablesReady = await checkTables();
+      if (!tablesReady) {
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('supplies')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error("Supabase error details:", error);
-        toast.error(`Database error: ${error.message}`);
-        return;
-      }
+      if (error) throw error;
 
-      console.log("Supplies fetched successfully:", data);
       setSupplies(data || []);
       
     } catch (err: any) {
-      console.error("Unexpected error:", err);
-      toast.error(`Unexpected error: ${err.message}`);
+      console.error("Error fetching supplies:", err);
+      toast.error(`Database error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -60,45 +78,24 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     fetchSupplies();
   }, []);
 
-  const filteredSupplies = selectedShop === "All" 
-    ? supplies 
-    : supplies.filter(s => s.shop === selectedShop);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-      if (editingSupply) {
-        const { error } = await supabase
-          .from('supplies')
-          .update({
-            name: formData.name,
-            amount: formData.amount,
-            phone_number: formData.phone_number,
-            shop: formData.shop,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingSupply.id);
+      const { error } = await supabase
+        .from('supplies')
+        .insert({
+          name: formData.name,
+          amount: formData.amount,
+          phone_number: formData.phone_number,
+          shop: formData.shop,
+        });
 
-        if (error) throw error;
-        toast.success("Supply updated successfully");
-      } else {
-        const { error } = await supabase
-          .from('supplies')
-          .insert({
-            name: formData.name,
-            amount: formData.amount,
-            phone_number: formData.phone_number,
-            shop: formData.shop,
-          });
-
-        if (error) throw error;
-        toast.success("Supply added successfully");
-      }
-
+      if (error) throw error;
+      
+      toast.success("Supply added successfully!");
       await fetchSupplies();
       setIsDialogOpen(false);
-      setEditingSupply(null);
       setFormData({
         name: "",
         amount: 0,
@@ -114,7 +111,45 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Loading supplies...</div>
+        <div className="text-lg">Checking database...</div>
+      </div>
+    );
+  }
+
+  if (tablesExist === false) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Supplies</h2>
+            <p className="text-muted-foreground">Manage inventory across all shops</p>
+          </div>
+        </div>
+        
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardHeader>
+            <CardTitle className="text-yellow-800">Database Setup Required</CardTitle>
+            <CardDescription className="text-yellow-700">
+              The database tables need to be created in Supabase before you can use this app.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-sm text-yellow-800">
+                Follow these steps to set up the database:
+              </p>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-yellow-800">
+                <li>Go to your Supabase dashboard</li>
+                <li>Click on <strong>SQL Editor</strong> in the left sidebar</li>
+                <li>Create a new query and run the table creation SQL</li>
+                <li>After running the SQL, refresh this page</li>
+              </ol>
+              <p className="text-sm text-yellow-800 mt-4">
+                If you need help, the SQL code is available in the project documentation.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
