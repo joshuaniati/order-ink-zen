@@ -7,6 +7,7 @@ import {
   ShoppingCart, 
   DollarSign, 
   BarChart3,
+  FileText,
   Store
 } from "lucide-react";
 
@@ -20,6 +21,7 @@ const Sidebar = () => {
     { name: "Orders", href: "/orders", icon: ShoppingCart },
     { name: "Daily Cash Up", href: "/cash-up", icon: DollarSign },
     { name: "Analytics", href: "/analytics", icon: BarChart3 },
+    { name: "Reports", href: "/reports", icon: FileText },
   ];
 
   const shopNavigation = shops.map(shop => ({

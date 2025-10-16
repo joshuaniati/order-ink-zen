@@ -9,6 +9,7 @@ import Supplies from "./pages/Supplies";
 import Orders from "./pages/Orders";
 import CashUp from "./pages/CashUp";
 import Analytics from "./pages/Analytics";
+import Reports from "./pages/Reports";
 import ShopDashboard from "./pages/ShopDashboard";
 import NotFound from "./pages/NotFound";
 import { Shop } from "./types";
@@ -45,6 +46,11 @@ const AnalyticsWrapper = () => {
   return <Analytics selectedShop={selectedShop} />;
 };
 
+const ReportsWrapper = () => {
+  const { selectedShop } = useShop();
+  return <Reports selectedShop={selectedShop} />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -58,6 +64,7 @@ const App = () => (
             <Route path="orders" element={<OrdersWrapper />} />
             <Route path="cash-up" element={<CashUpWrapper />} />
             <Route path="analytics" element={<AnalyticsWrapper />} />
+            <Route path="reports" element={<ReportsWrapper />} />
             <Route path="shop/:shopId" element={<ShopDashboard />} />
           </Route>
           <Route path="*" element={<NotFound />} />
