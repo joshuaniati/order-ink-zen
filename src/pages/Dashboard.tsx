@@ -21,55 +21,34 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
   const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch data from Supabase
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      const [suppliesResponse, ordersResponse, incomeResponse] = await Promise.all([
+        supabase.from('supplies').select('*'),
+        supabase.from('orders').select('*'),
+        supabase.from('income_records').select('*')
+      ]);
+
+      if (suppliesResponse.error) throw suppliesResponse.error;
+      if (ordersResponse.error) throw ordersResponse.error;
+      if (incomeResponse.error) throw incomeResponse.error;
+
+      setSupplies(suppliesResponse.data || []);
+      setOrders(ordersResponse.data || []);
+      setIncomeRecords(incomeResponse.data || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch supplies
-        const { data: suppliesData, error: suppliesError } = await supabase
-          .from('supplies')
-          .select('*');
-        
-        // Fetch orders
-        const { data: ordersData, error: ordersError } = await supabase
-          .from('orders')
-          .select('*');
-        
-        // Fetch income records
-        const { data: incomeData, error: incomeError } = await supabase
-          .from('income_records')
-          .select('*');
-
-        if (suppliesError) {
-          console.error('Error fetching supplies:', suppliesError);
-        } else {
-          setSupplies(suppliesData || []);
-        }
-
-        if (ordersError) {
-          console.error('Error fetching orders:', ordersError);
-        } else {
-          setOrders(ordersData || []);
-        }
-
-        if (incomeError) {
-          console.error('Error fetching income:', incomeError);
-        } else {
-          setIncomeRecords(incomeData || []);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
 
-  // Filter by shop
   const filteredSupplies = selectedShop === "All" 
     ? supplies 
     : supplies.filter(s => s.shop === selectedShop);
@@ -82,21 +61,18 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     ? incomeRecords 
     : incomeRecords.filter(i => i.shop === selectedShop);
 
-  // Calculate metrics
   const pendingOrders = filteredOrders.filter(o => o.status === "Pending");
   
-  // Today's income
   const today = new Date().toISOString().split('T')[0];
   const todayIncome = filteredIncome
     .filter(i => i.date === today)
-    .reduce((sum, i) => sum + i.netIncome, 0);
+    .reduce((sum, i) => sum + i.net_income, 0);
 
-  // Weekly income
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 7);
   const weeklyIncome = filteredIncome
     .filter(i => new Date(i.date) >= weekAgo)
-    .reduce((sum, i) => sum + i.netIncome, 0);
+    .reduce((sum, i) => sum + i.net_income, 0);
 
   if (loading) {
     return (
