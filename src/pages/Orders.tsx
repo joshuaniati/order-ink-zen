@@ -300,7 +300,313 @@ const Orders = ({ selectedShop }: OrdersProps) => {
 
   return (
     <div className="space-y-6">
-      {/* ... (rest of the JSX remains the same, just ensure all field names use snake_case) ... */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Orders</h2>
+          <p className="text-muted-foreground">Manage purchase orders and deliveries</p>
+        </div>
+        <div className="flex gap-2">
+          <Dialog open={isBudgetDialogOpen} onOpenChange={setIsBudgetDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">Set Weekly Budget</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Set Weekly Budget</DialogTitle>
+                <DialogDescription>
+                  Set the budget for {selectedShop !== "All" ? selectedShop : "a shop"} for this week
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleBudgetSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="budget">Budget Amount (ZAR) *</Label>
+                  <Input
+                    id="budget"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={budgetAmount}
+                    onChange={(e) => setBudgetAmount(parseFloat(e.target.value))}
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsBudgetDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Set Budget</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Order
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>{editingOrder ? "Edit Order" : "Create New Order"}</DialogTitle>
+                <DialogDescription>
+                  Enter order details and delivery information
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="supplyId">Select Supply *</Label>
+                    <Select value={formData.supply_id} onValueChange={(value) => setFormData({ ...formData, supply_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose supply" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {supplies.map((supply) => (
+                          <SelectItem key={supply.id} value={supply.id}>
+                            {supply.name} - {supply.shop}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="orderDate">Order Date *</Label>
+                    <Input
+                      id="orderDate"
+                      type="date"
+                      required
+                      value={formData.order_date}
+                      onChange={(e) => setFormData({ ...formData, order_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="orderedBy">Ordered By (Email) *</Label>
+                    <Input
+                      id="orderedBy"
+                      type="email"
+                      required
+                      value={formData.ordered_by}
+                      onChange={(e) => setFormData({ ...formData, ordered_by: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contactPerson">Contact Person *</Label>
+                    <Input
+                      id="contactPerson"
+                      type="text"
+                      required
+                      value={formData.contact_person}
+                      onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                      placeholder="Name of person you spoke to"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="orderAmount">Order Amount *</Label>
+                    <Input
+                      id="orderAmount"
+                      type="number"
+                      required
+                      value={formData.order_amount}
+                      onChange={(e) => setFormData({ ...formData, order_amount: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="amountDelivered">Amount Delivered</Label>
+                    <Input
+                      id="amountDelivered"
+                      type="number"
+                      value={formData.amount_delivered}
+                      onChange={(e) => setFormData({ ...formData, amount_delivered: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="deliveryDate">Expected Delivery *</Label>
+                    <Input
+                      id="deliveryDate"
+                      type="date"
+                      required
+                      value={formData.delivery_date}
+                      onChange={(e) => setFormData({ ...formData, delivery_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="shop">Shop *</Label>
+                    <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a shop" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {shops.map((shop) => (
+                          <SelectItem key={shop} value={shop}>{shop}</SelectItem>
+                        ))}
+                        <SelectItem value="A">Shop A</SelectItem>
+                        <SelectItem value="B">Shop B</SelectItem>
+                        <SelectItem value="C">Shop C</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    {editingOrder ? "Update" : "Create"} Order
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {currentBudget && selectedShop !== "All" && (
+        <Card className={isOverBudget ? "border-red-200" : "border-green-200"}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {isOverBudget ? (
+                <TrendingDown className="h-5 w-5 text-red-600" />
+              ) : (
+                <TrendingUp className="h-5 w-5 text-green-600" />
+              )}
+              Weekly Budget Status
+            </CardTitle>
+            <CardDescription>Current week budget tracking for {selectedShop}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Budget</p>
+                <p className="text-2xl font-bold">{formatCurrency(currentBudget.budget_amount)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Orders Total</p>
+                <p className="text-2xl font-bold">{formatCurrency(totalOrderAmount)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Balance</p>
+                <p className={`text-2xl font-bold ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>
+                  {formatCurrency(Math.abs(budgetBalance))}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Status</p>
+                <Badge variant={isOverBudget ? "destructive" : "default"} className="text-base">
+                  {isOverBudget ? "Over Budget" : "Under Budget"}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending Orders</CardTitle>
+            <CardDescription>Awaiting delivery</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{pendingOrders.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Partial Deliveries</CardTitle>
+            <CardDescription>Incomplete orders</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{partialOrders.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Completed</CardTitle>
+            <CardDescription>Fully delivered</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{deliveredOrders.length}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Order List</CardTitle>
+          <CardDescription>
+            {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Supply</TableHead>
+                <TableHead>Order Date</TableHead>
+                <TableHead>Ordered By</TableHead>
+                <TableHead>Contact Person</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Delivered</TableHead>
+                <TableHead>Delivery Date</TableHead>
+                <TableHead>Shop</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredOrders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">{order.supply_name}</TableCell>
+                  <TableCell>{order.order_date}</TableCell>
+                  <TableCell>{order.ordered_by}</TableCell>
+                  <TableCell>{order.contact_person}</TableCell>
+                  <TableCell>{order.order_amount}</TableCell>
+                  <TableCell>{order.amount_delivered}</TableCell>
+                  <TableCell>{order.delivery_date}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{order.shop}</Badge>
+                  </TableCell>
+                  <TableCell>{getStatusBadge(order.status)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(order)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(order.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {filteredOrders.length === 0 && (
+            <div className="py-12 text-center text-muted-foreground">
+              No orders found. Create your first order to get started.
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
