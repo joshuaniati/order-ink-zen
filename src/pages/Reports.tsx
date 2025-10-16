@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Shop } from "@/types";
-import { getSupplies, getOrders, getIncomeRecords, getShops } from "@/lib/storage";
 import { formatCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,19 +8,80 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Printer, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 
 interface ReportsProps {
   selectedShop: Shop;
 }
 
+type Supply = Tables<'supplies'>;
+type Order = Tables<'orders'>;
+type IncomeRecord = Tables<'income_records'>;
+
 const Reports = ({ selectedShop }: ReportsProps) => {
-  const shops = getShops();
+  const [supplies, setSupplies] = useState<Supply[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([]);
+  const [shops, setShops] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   const [reportShop, setReportShop] = useState<Shop>(selectedShop);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [includeSupplies, setIncludeSupplies] = useState(true);
   const [includeOrders, setIncludeOrders] = useState(true);
   const [includeIncome, setIncludeIncome] = useState(true);
+
+  // Fetch data from Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch supplies
+        const { data: suppliesData, error: suppliesError } = await supabase
+          .from('supplies')
+          .select('*');
+
+        // Fetch orders
+        const { data: ordersData, error: ordersError } = await supabase
+          .from('orders')
+          .select('*');
+
+        // Fetch income records
+        const { data: incomeData, error: incomeError } = await supabase
+          .from('income_records')
+          .select('*');
+
+        if (suppliesError) throw suppliesError;
+        if (ordersError) throw ordersError;
+        if (incomeError) throw incomeError;
+
+        setSupplies(suppliesData || []);
+        setOrders(ordersData || []);
+        setIncomeRecords(incomeData || []);
+
+        // Extract unique shops from all data sources
+        const allShops = [
+          ...new Set([
+            ...(suppliesData?.map(s => s.shop) || []),
+            ...(ordersData?.map(o => o.shop) || []),
+            ...(incomeData?.map(i => i.shop) || [])
+          ])
+        ];
+        setShops(allShops);
+
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast.error('Failed to load report data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handlePrintCurrent = () => {
     toast.info("Printing current view...");
@@ -38,28 +98,36 @@ const Reports = ({ selectedShop }: ReportsProps) => {
   };
 
   // Get filtered data
-  const supplies = getSupplies().filter(s => 
+  const filteredSupplies = supplies.filter(s => 
     (reportShop === "All" || s.shop === reportShop)
   );
 
-  const orders = getOrders().filter(o => {
+  const filteredOrders = orders.filter(o => {
     const matchesShop = reportShop === "All" || o.shop === reportShop;
-    const matchesDate = (!startDate || o.orderDate >= startDate) && 
-                       (!endDate || o.orderDate <= endDate);
+    const matchesDate = (!startDate || o.order_date >= startDate) && 
+                       (!endDate || o.order_date <= endDate);
     return matchesShop && matchesDate;
   });
 
-  const incomeRecords = getIncomeRecords().filter(r => {
+  const filteredIncome = incomeRecords.filter(r => {
     const matchesShop = reportShop === "All" || r.shop === reportShop;
     const matchesDate = (!startDate || r.date >= startDate) && 
                        (!endDate || r.date <= endDate);
     return matchesShop && matchesDate;
   });
 
-  const totalIncome = incomeRecords.reduce((sum, r) => sum + r.dailyIncome, 0);
-  const totalExpenses = incomeRecords.reduce((sum, r) => sum + r.expenses, 0);
-  const totalNet = incomeRecords.reduce((sum, r) => sum + r.netIncome, 0);
-  const totalOrders = orders.reduce((sum, o) => sum + o.orderAmount, 0);
+  const totalIncome = filteredIncome.reduce((sum, r) => sum + r.daily_income, 0);
+  const totalExpenses = filteredIncome.reduce((sum, r) => sum + r.expenses, 0);
+  const totalNet = filteredIncome.reduce((sum, r) => sum + r.net_income, 0);
+  const totalOrders = filteredOrders.reduce((sum, o) => sum + o.order_amount, 0);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading reports...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -180,7 +248,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
             <CardTitle className="text-sm font-medium">Total Supplies</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{supplies.length}</div>
+            <div className="text-2xl font-bold">{filteredSupplies.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -210,7 +278,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
       </div>
 
       {/* Supplies Section */}
-      {includeSupplies && supplies.length > 0 && (
+      {includeSupplies && filteredSupplies.length > 0 && (
         <Card className="print:break-inside-avoid">
           <CardHeader>
             <CardTitle>Supplies Inventory</CardTitle>
@@ -227,11 +295,11 @@ const Reports = ({ selectedShop }: ReportsProps) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {supplies.map((supply) => (
+                  {filteredSupplies.map((supply) => (
                     <tr key={supply.id} className="border-b">
                       <td className="p-2">{supply.name}</td>
                       <td className="p-2">{supply.amount}</td>
-                      <td className="p-2">{supply.phoneNumber}</td>
+                      <td className="p-2">{supply.phone_number}</td>
                       <td className="p-2">{supply.shop}</td>
                     </tr>
                   ))}
@@ -243,7 +311,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
       )}
 
       {/* Orders Section */}
-      {includeOrders && orders.length > 0 && (
+      {includeOrders && filteredOrders.length > 0 && (
         <Card className="print:break-inside-avoid">
           <CardHeader>
             <CardTitle>Orders Summary</CardTitle>
@@ -262,12 +330,12 @@ const Reports = ({ selectedShop }: ReportsProps) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((order) => (
+                  {filteredOrders.map((order) => (
                     <tr key={order.id} className="border-b">
-                      <td className="p-2">{order.supplyName}</td>
-                      <td className="p-2">{order.orderDate}</td>
-                      <td className="p-2">{order.contactPerson}</td>
-                      <td className="p-2">{order.orderAmount}</td>
+                      <td className="p-2">{order.supply_name}</td>
+                      <td className="p-2">{order.order_date}</td>
+                      <td className="p-2">{order.contact_person}</td>
+                      <td className="p-2">{order.order_amount}</td>
                       <td className="p-2">{order.status}</td>
                       <td className="p-2">{order.shop}</td>
                     </tr>
@@ -280,7 +348,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
       )}
 
       {/* Income Section */}
-      {includeIncome && incomeRecords.length > 0 && (
+      {includeIncome && filteredIncome.length > 0 && (
         <Card className="print:break-inside-avoid">
           <CardHeader>
             <CardTitle>Income Records</CardTitle>
@@ -298,13 +366,13 @@ const Reports = ({ selectedShop }: ReportsProps) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {incomeRecords.map((record) => (
+                  {filteredIncome.map((record) => (
                     <tr key={record.id} className="border-b">
                       <td className="p-2">{record.date}</td>
                       <td className="p-2">{record.shop}</td>
-                      <td className="p-2">{formatCurrency(record.dailyIncome)}</td>
+                      <td className="p-2">{formatCurrency(record.daily_income)}</td>
                       <td className="p-2">{formatCurrency(record.expenses)}</td>
-                      <td className="p-2">{formatCurrency(record.netIncome)}</td>
+                      <td className="p-2">{formatCurrency(record.net_income)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -318,6 +386,15 @@ const Reports = ({ selectedShop }: ReportsProps) => {
                 </tfoot>
               </table>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Empty State */}
+      {filteredSupplies.length === 0 && filteredOrders.length === 0 && filteredIncome.length === 0 && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">No data found for the selected filters.</p>
           </CardContent>
         </Card>
       )}
