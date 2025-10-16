@@ -33,36 +33,25 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     shop: "",
   });
 
-  // Fetch data from Supabase
   const fetchData = async () => {
     try {
       setLoading(true);
-      console.log("Fetching supplies from Supabase...");
       
-      // Fetch supplies
-      const { data: suppliesData, error: suppliesError } = await supabase
+      const { data: suppliesData, error } = await supabase
         .from('supplies')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (suppliesError) {
-        console.error('Supabase supplies error:', suppliesError);
-        throw suppliesError;
-      }
+      if (error) throw error;
 
-      console.log("Supplies data received:", suppliesData);
       setSupplies(suppliesData || []);
 
-      // Extract unique shops from supplies
       const uniqueShops = [...new Set(suppliesData?.map(s => s.shop).filter(Boolean) || [])];
-      console.log("Unique shops found:", uniqueShops);
       setShops(uniqueShops);
       
-      // Set default shop in form if available
       if (uniqueShops.length > 0 && !formData.shop) {
         setFormData(prev => ({ ...prev, shop: uniqueShops[0] }));
       } else if (uniqueShops.length === 0) {
-        // If no shops in database, set default to Shop A
         setFormData(prev => ({ ...prev, shop: "A" }));
       }
 
@@ -86,10 +75,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     e.preventDefault();
     
     try {
-      console.log("Submitting form data:", formData);
-
       if (editingSupply) {
-        // Update existing supply
         const { error } = await supabase
           .from('supplies')
           .update({
@@ -101,34 +87,23 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
           })
           .eq('id', editingSupply.id);
 
-        if (error) {
-          console.error('Supabase update error:', error);
-          throw error;
-        }
+        if (error) throw error;
         toast.success("Supply updated successfully");
       } else {
-        // Create new supply
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('supplies')
           .insert({
             name: formData.name,
             amount: formData.amount,
             phone_number: formData.phone_number,
             shop: formData.shop,
-          })
-          .select();
+          });
 
-        if (error) {
-          console.error('Supabase insert error:', error);
-          throw error;
-        }
-        console.log("Insert successful, data:", data);
+        if (error) throw error;
         toast.success("Supply added successfully");
       }
 
-      // Refresh all data including shops list
       await fetchData();
-      
       setIsDialogOpen(false);
       resetForm();
     } catch (error: any) {
@@ -157,12 +132,8 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
         .delete()
         .eq('id', id);
 
-      if (error) {
-        console.error('Supabase delete error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      // Refresh data after deletion
       await fetchData();
       toast.success("Supply deleted successfully");
     } catch (error: any) {
@@ -258,7 +229,6 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                       {shops.map((shop) => (
                         <SelectItem key={shop} value={shop}>{shop}</SelectItem>
                       ))}
-                      {/* Always show the basic shop options */}
                       {!shops.includes("A") && <SelectItem value="A">Shop A</SelectItem>}
                       {!shops.includes("B") && <SelectItem value="B">Shop B</SelectItem>}
                       {!shops.includes("C") && <SelectItem value="C">Shop C</SelectItem>}
