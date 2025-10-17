@@ -1,21 +1,19 @@
-import { Shop } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import MetricCard from "@/components/dashboard/MetricCard";
 import { Package, ShoppingCart, DollarSign, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import type { Tables } from "@/integrations/supabase/types";
-
-interface DashboardProps {
-  selectedShop: Shop;
-}
 
 type Supply = Tables<'supplies'>;
 type Order = Tables<'orders'>;
 type IncomeRecord = Tables<'income_records'>;
 
-const Dashboard = ({ selectedShop }: DashboardProps) => {
+const ShopDashboard = () => {
+  const { shopId } = useParams<{ shopId: string }>();
+  const selectedShop = decodeURIComponent(shopId || '');
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([]);
@@ -176,4 +174,4 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
   );
 };
 
-export default Dashboard;
+export default ShopDashboard;

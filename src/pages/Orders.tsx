@@ -260,13 +260,13 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const partialOrders = filteredOrders.filter(o => o.status === "Partial");
   const deliveredOrders = filteredOrders.filter(o => o.status === "Delivered");
 
-  const getStatusBadge = (status: OrderStatus) => {
-    const variants = {
-      Pending: "secondary" as const,
-      Partial: "default" as const,
-      Delivered: "default" as const,
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, "secondary" | "default"> = {
+      Pending: "secondary",
+      Partial: "default",
+      Delivered: "default",
     };
-    return <Badge variant={variants[status]}>{status}</Badge>;
+    return <Badge variant={variants[status] || "default"}>{status}</Badge>;
   };
 
   if (loading) {

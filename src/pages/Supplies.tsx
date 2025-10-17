@@ -24,7 +24,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     name: "",
     amount: 0,
     phone_number: "",
-    shop: "A",
+    shop: "",
   });
 
   // First, check if tables exist
@@ -100,7 +100,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
         name: "",
         amount: 0,
         phone_number: "",
-        shop: "A",
+        shop: "",
       });
     } catch (error: any) {
       console.error('Error saving supply:', error);
@@ -211,16 +211,14 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="shop">Shop *</Label>
-                <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A">Shop A</SelectItem>
-                    <SelectItem value="B">Shop B</SelectItem>
-                    <SelectItem value="C">Shop C</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="shop"
+                  type="text"
+                  required
+                  value={formData.shop}
+                  onChange={(e) => setFormData({ ...formData, shop: e.target.value })}
+                  placeholder="Enter shop name"
+                />
               </div>
             </div>
             <div className="flex justify-end gap-2">

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { getShops } from "@/lib/storage";
+import { useShopManagement } from "@/hooks/useShopManagement";
 import { 
   LayoutDashboard, 
   Package, 
@@ -13,7 +13,7 @@ import {
 
 const Sidebar = () => {
   const location = useLocation();
-  const shops = getShops();
+  const { shops } = useShopManagement();
 
   const baseNavigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },

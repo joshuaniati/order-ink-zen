@@ -30,8 +30,11 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
   
   const [formData, setFormData] = useState({
     date: today,
-    shop: "A" as Shop,
-    daily_income: 0,
+    shop: "" as Shop,
+    cash_amount: 0,
+    card_machine_amount: 0,
+    account_amount: 0,
+    direct_deposit_amount: 0,
     expenses: 0,
     notes: "",
   });
@@ -68,7 +71,8 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const net_income = formData.daily_income - formData.expenses;
+    const daily_income = formData.cash_amount + formData.card_machine_amount + formData.account_amount + formData.direct_deposit_amount;
+    const net_income = daily_income - formData.expenses;
     
     try {
       if (editingRecord) {
@@ -78,7 +82,11 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
           .update({
             date: formData.date,
             shop: formData.shop,
-            daily_income: formData.daily_income,
+            cash_amount: formData.cash_amount,
+            card_machine_amount: formData.card_machine_amount,
+            account_amount: formData.account_amount,
+            direct_deposit_amount: formData.direct_deposit_amount,
+            daily_income,
             expenses: formData.expenses,
             net_income,
             notes: formData.notes,
@@ -95,7 +103,11 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
           .insert({
             date: formData.date,
             shop: formData.shop,
-            daily_income: formData.daily_income,
+            cash_amount: formData.cash_amount,
+            card_machine_amount: formData.card_machine_amount,
+            account_amount: formData.account_amount,
+            direct_deposit_amount: formData.direct_deposit_amount,
+            daily_income,
             expenses: formData.expenses,
             net_income,
             notes: formData.notes,
@@ -127,7 +139,10 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
     setFormData({
       date: record.date,
       shop: record.shop,
-      daily_income: record.daily_income,
+      cash_amount: record.cash_amount,
+      card_machine_amount: record.card_machine_amount,
+      account_amount: record.account_amount,
+      direct_deposit_amount: record.direct_deposit_amount,
       expenses: record.expenses,
       notes: record.notes || "",
     });
@@ -157,8 +172,11 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
     setEditingRecord(null);
     setFormData({
       date: today,
-      shop: "A",
-      daily_income: 0,
+      shop: "",
+      cash_amount: 0,
+      card_machine_amount: 0,
+      account_amount: 0,
+      direct_deposit_amount: 0,
       expenses: 0,
       notes: "",
     });
@@ -223,26 +241,57 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="shop">Shop *</Label>
-                <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value as Shop })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A">Shop A</SelectItem>
-                    <SelectItem value="B">Shop B</SelectItem>
-                    <SelectItem value="C">Shop C</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="shop"
+                  type="text"
+                  required
+                  value={formData.shop}
+                  onChange={(e) => setFormData({ ...formData, shop: e.target.value as Shop })}
+                  placeholder="Enter shop name"
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="daily_income">Daily Income (ZAR) *</Label>
+                <Label htmlFor="cash_amount">Daily Cash Amount (ZAR) *</Label>
                 <Input
-                  id="daily_income"
+                  id="cash_amount"
                   type="number"
                   step="0.01"
                   required
-                  value={formData.daily_income}
-                  onChange={(e) => setFormData({ ...formData, daily_income: parseFloat(e.target.value) })}
+                  value={formData.cash_amount}
+                  onChange={(e) => setFormData({ ...formData, cash_amount: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="card_machine_amount">Mobile Card Machine Amount (ZAR) *</Label>
+                <Input
+                  id="card_machine_amount"
+                  type="number"
+                  step="0.01"
+                  required
+                  value={formData.card_machine_amount}
+                  onChange={(e) => setFormData({ ...formData, card_machine_amount: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="account_amount">Account Amount (ZAR) *</Label>
+                <Input
+                  id="account_amount"
+                  type="number"
+                  step="0.01"
+                  required
+                  value={formData.account_amount}
+                  onChange={(e) => setFormData({ ...formData, account_amount: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="direct_deposit_amount">Direct Deposit Amount (ZAR) *</Label>
+                <Input
+                  id="direct_deposit_amount"
+                  type="number"
+                  step="0.01"
+                  required
+                  value={formData.direct_deposit_amount}
+                  onChange={(e) => setFormData({ ...formData, direct_deposit_amount: parseFloat(e.target.value) || 0 })}
                 />
               </div>
               <div className="space-y-2">
@@ -253,13 +302,19 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
                   step="0.01"
                   required
                   value={formData.expenses}
-                  onChange={(e) => setFormData({ ...formData, expenses: parseFloat(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, expenses: parseFloat(e.target.value) || 0 })}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Total Daily Income (Auto-calculated)</Label>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(formData.cash_amount + formData.card_machine_amount + formData.account_amount + formData.direct_deposit_amount)}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Net Income (Auto-calculated)</Label>
                 <div className="text-2xl font-bold">
-                  {formatCurrency(formData.daily_income - formData.expenses)}
+                  {formatCurrency((formData.cash_amount + formData.card_machine_amount + formData.account_amount + formData.direct_deposit_amount) - formData.expenses)}
                 </div>
               </div>
               <div className="space-y-2">
@@ -363,7 +418,11 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Shop</TableHead>
-                <TableHead>Income</TableHead>
+                <TableHead>Cash</TableHead>
+                <TableHead>Card</TableHead>
+                <TableHead>Account</TableHead>
+                <TableHead>Deposit</TableHead>
+                <TableHead>Total Income</TableHead>
                 <TableHead>Expenses</TableHead>
                 <TableHead>Net Income</TableHead>
                 <TableHead>Notes</TableHead>
@@ -374,8 +433,12 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               {filteredRecords.map((record) => (
                 <TableRow key={record.id}>
                   <TableCell className="font-medium">{record.date}</TableCell>
-                  <TableCell>Shop {record.shop}</TableCell>
-                  <TableCell className="text-green-600">{formatCurrency(record.daily_income)}</TableCell>
+                  <TableCell>{record.shop}</TableCell>
+                  <TableCell className="text-green-600">{formatCurrency(record.cash_amount)}</TableCell>
+                  <TableCell className="text-green-600">{formatCurrency(record.card_machine_amount)}</TableCell>
+                  <TableCell className="text-green-600">{formatCurrency(record.account_amount)}</TableCell>
+                  <TableCell className="text-green-600">{formatCurrency(record.direct_deposit_amount)}</TableCell>
+                  <TableCell className="text-green-600 font-bold">{formatCurrency(record.daily_income)}</TableCell>
                   <TableCell className="text-red-600">{formatCurrency(record.expenses)}</TableCell>
                   <TableCell className={record.net_income >= 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
                     {formatCurrency(record.net_income)}

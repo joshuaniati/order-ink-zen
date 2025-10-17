@@ -14,7 +14,179 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      income_records: {
+        Row: {
+          account_amount: number
+          card_machine_amount: number
+          cash_amount: number
+          created_at: string
+          daily_income: number
+          date: string
+          direct_deposit_amount: number
+          expenses: number
+          id: string
+          net_income: number
+          notes: string | null
+          shop: string
+          updated_at: string
+        }
+        Insert: {
+          account_amount?: number
+          card_machine_amount?: number
+          cash_amount?: number
+          created_at?: string
+          daily_income?: number
+          date: string
+          direct_deposit_amount?: number
+          expenses?: number
+          id?: string
+          net_income?: number
+          notes?: string | null
+          shop: string
+          updated_at?: string
+        }
+        Update: {
+          account_amount?: number
+          card_machine_amount?: number
+          cash_amount?: number
+          created_at?: string
+          daily_income?: number
+          date?: string
+          direct_deposit_amount?: number
+          expenses?: number
+          id?: string
+          net_income?: number
+          notes?: string | null
+          shop?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          amount_delivered: number
+          contact_person: string
+          created_at: string
+          delivery_date: string | null
+          id: string
+          notes: string | null
+          order_amount: number
+          order_date: string
+          ordered_by: string
+          shop: string
+          status: string
+          supply_id: string | null
+          supply_name: string
+        }
+        Insert: {
+          amount_delivered?: number
+          contact_person: string
+          created_at?: string
+          delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          order_amount?: number
+          order_date: string
+          ordered_by: string
+          shop: string
+          status: string
+          supply_id?: string | null
+          supply_name: string
+        }
+        Update: {
+          amount_delivered?: number
+          contact_person?: string
+          created_at?: string
+          delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          order_amount?: number
+          order_date?: string
+          ordered_by?: string
+          shop?: string
+          status?: string
+          supply_id?: string | null
+          supply_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_supply_id_fkey"
+            columns: ["supply_id"]
+            isOneToOne: false
+            referencedRelation: "supplies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shops: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      supplies: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          name: string
+          phone_number: string
+          shop: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          name: string
+          phone_number: string
+          shop: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          name?: string
+          phone_number?: string
+          shop?: string
+        }
+        Relationships: []
+      }
+      weekly_budgets: {
+        Row: {
+          budget_amount: number
+          created_at: string
+          id: string
+          shop: string
+          week_start_date: string
+        }
+        Insert: {
+          budget_amount?: number
+          created_at?: string
+          id?: string
+          shop: string
+          week_start_date: string
+        }
+        Update: {
+          budget_amount?: number
+          created_at?: string
+          id?: string
+          shop?: string
+          week_start_date?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
