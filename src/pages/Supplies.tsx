@@ -7,59 +7,57 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Pencil, Trash2, Store } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useShopManagement } from "@/hooks/useShopManagement";
+import { useShops } from "@/hooks/useShops";
 
 interface SuppliesProps {
   selectedShop: Shop;
 }
 
+interface Supply {
+  id: string;
+  name: string;
+  amount: number;
+  phone_number?: string;
+  shop: string;
+  created_at: string;
+  updated_at: string;
+}
+
 const Supplies = ({ selectedShop }: SuppliesProps) => {
-  const [supplies, setSupplies] = useState<any[]>([]);
+  const [supplies, setSupplies] = useState<Supply[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isShopDialogOpen, setIsShopDialogOpen] = useState(false);
+  const [editingSupply, setEditingSupply] = useState<Supply | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tablesExist, setTablesExist] = useState<boolean | null>(null);
-  const { shops, refreshShops } = useShopManagement();
   
-  const [formData, setFormData] = useState({
+  const { shops, loading: shopsLoading, addShop, refreshShops } = useShops();
+  
+  const [supplyFormData, setSupplyFormData] = useState({
     name: "",
     amount: 0,
     phone_number: "",
     shop: "",
   });
 
-  // First, check if tables exist
-  const checkTables = async () => {
-    try {
-      const { data, error } = await supabase.from('supplies').select('count');
-      
-      if (error) {
-        console.error("Table check failed:", error);
-        setTablesExist(false);
-        return false;
-      }
-      
-      setTablesExist(true);
-      return true;
-    } catch (err) {
-      console.error("Table check error:", err);
-      setTablesExist(false);
-      return false;
+  const [shopFormData, setShopFormData] = useState({
+    name: "",
+  });
+
+  // Set default shop when shops load
+  useEffect(() => {
+    if (shops.length > 0 && !supplyFormData.shop) {
+      setSupplyFormData(prev => ({ ...prev, shop: shops[0].name }));
     }
-  };
+  }, [shops]);
 
   const fetchSupplies = async () => {
     try {
       setLoading(true);
       
-      const tablesReady = await checkTables();
-      if (!tablesReady) {
-        setLoading(false);
-        return;
-      }
-
       const { data, error } = await supabase
         .from('supplies')
         .select('*')
@@ -70,8 +68,8 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
       setSupplies(data || []);
       
     } catch (err: any) {
-      console.error("Error fetching supplies:", err);
-      toast.error(`Database error: ${err.message}`);
+      console.error("Error:", err);
+      toast.error(`Failed to load supplies: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -81,79 +79,120 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     fetchSupplies();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const filteredSupplies = selectedShop === "All" 
+    ? supplies 
+    : supplies.filter(s => s.shop === selectedShop);
+
+  const handleSupplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-      const { error } = await supabase
-        .from('supplies')
-        .insert({
-          name: formData.name,
-          amount: formData.amount,
-          phone_number: formData.phone_number,
-          shop: formData.shop,
-        });
+      if (editingSupply) {
+        const { error } = await supabase
+          .from('supplies')
+          .update({
+            name: supplyFormData.name,
+            amount: supplyFormData.amount,
+            phone_number: supplyFormData.phone_number,
+            shop: supplyFormData.shop,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingSupply.id);
 
-      if (error) throw error;
-      
-      toast.success("Supply added successfully!");
+        if (error) throw error;
+        toast.success("Supply updated successfully");
+      } else {
+        const { error } = await supabase
+          .from('supplies')
+          .insert({
+            name: supplyFormData.name,
+            amount: supplyFormData.amount,
+            phone_number: supplyFormData.phone_number,
+            shop: supplyFormData.shop,
+          });
+
+        if (error) throw error;
+        toast.success("Supply added successfully");
+      }
+
       await fetchSupplies();
-      refreshShops();
       setIsDialogOpen(false);
-      setFormData({
-        name: "",
-        amount: 0,
-        phone_number: "",
-        shop: "",
-      });
+      resetSupplyForm();
     } catch (error: any) {
       console.error('Error saving supply:', error);
       toast.error(`Failed to save supply: ${error.message}`);
     }
   };
 
-  if (loading) {
+  const handleShopSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!shopFormData.name.trim()) {
+      toast.error("Please enter a shop name");
+      return;
+    }
+
+    try {
+      await addShop(shopFormData.name);
+      toast.success("Shop added successfully");
+      setIsShopDialogOpen(false);
+      resetShopForm();
+    } catch (error: any) {
+      console.error('Error saving shop:', error);
+      toast.error(`Failed to save shop: ${error.message}`);
+    }
+  };
+
+  const handleEdit = (supply: Supply) => {
+    setEditingSupply(supply);
+    setSupplyFormData({
+      name: supply.name,
+      amount: supply.amount,
+      phone_number: supply.phone_number || "",
+      shop: supply.shop,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this supply?")) return;
+
+    try {
+      const { error } = await supabase
+        .from('supplies')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await fetchSupplies();
+      toast.success("Supply deleted successfully");
+    } catch (error: any) {
+      console.error('Error deleting supply:', error);
+      toast.error(`Failed to delete supply: ${error.message}`);
+    }
+  };
+
+  const resetSupplyForm = () => {
+    setEditingSupply(null);
+    setSupplyFormData({
+      name: "",
+      amount: 0,
+      phone_number: "",
+      shop: shops[0]?.name || "",
+    });
+  };
+
+  const resetShopForm = () => {
+    setShopFormData({
+      name: "",
+    });
+  };
+
+  if (loading || shopsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Checking database...</div>
-      </div>
-    );
-  }
-
-  if (tablesExist === false) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">Supplies</h2>
-            <p className="text-muted-foreground">Manage inventory across all shops</p>
-          </div>
-        </div>
-        
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardHeader>
-            <CardTitle className="text-yellow-800">Database Setup Required</CardTitle>
-            <CardDescription className="text-yellow-700">
-              The database tables need to be created in Supabase before you can use this app.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <p className="text-sm text-yellow-800">
-                Follow these steps to set up the database:
-              </p>
-              <ol className="list-decimal list-inside space-y-2 text-sm text-yellow-800">
-                <li>Go to your Supabase dashboard</li>
-                <li>Click on <strong>SQL Editor</strong> in the left sidebar</li>
-                <li>Create a new query and run the table creation SQL</li>
-                <li>After running the SQL, refresh this page</li>
-              </ol>
-              <p className="text-sm text-yellow-800 mt-4">
-                If you need help, the SQL code is available in the project documentation.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="text-lg">Loading supplies...</div>
       </div>
     );
   }
@@ -165,101 +204,166 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
           <h2 className="text-3xl font-bold tracking-tight">Supplies</h2>
           <p className="text-muted-foreground">Manage inventory across all shops</p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Supply
-        </Button>
-      </div>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Add New Supply</DialogTitle>
-            <DialogDescription>
-              Enter supply details and inventory information
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Supply Name *</Label>
-                <Input
-                  id="name"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter supply name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount *</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  required
-                  min="0"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                  placeholder="Enter amount"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone_number">Phone Number</Label>
-                <Input
-                  id="phone_number"
-                  type="tel"
-                  value={formData.phone_number}
-                  onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                  placeholder="Enter phone number"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="shop">Shop *</Label>
-                <Select
-                  required
-                  value={formData.shop}
-                  onValueChange={(value) => setFormData({ ...formData, shop: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a shop" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {shops.map((shop) => (
-                      <SelectItem key={shop} value={shop}>
-                        {shop}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
+        <div className="flex gap-2">
+          <Dialog open={isShopDialogOpen} onOpenChange={setIsShopDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Store className="mr-2 h-4 w-4" />
+                Add Shop
               </Button>
-              <Button type="submit">
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Shop</DialogTitle>
+                <DialogDescription>
+                  Create a new shop that will be available for all supplies
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleShopSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="shopName">Shop Name *</Label>
+                  <Input
+                    id="shopName"
+                    required
+                    value={shopFormData.name}
+                    onChange={(e) => setShopFormData({ name: e.target.value })}
+                    placeholder="Enter shop name"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsShopDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    Add Shop
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetSupplyForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
                 Add Supply
               </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-{supplies.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground mb-4">No supplies found. Add your first supply to get started.</p>
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Your First Supply
-          </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>{editingSupply ? "Edit Supply" : "Add New Supply"}</DialogTitle>
+                <DialogDescription>
+                  Enter supply details and select which shop it belongs to
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSupplySubmit} className="space-y-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Supply Name *</Label>
+                    <Input
+                      id="name"
+                      required
+                      value={supplyFormData.name}
+                      onChange={(e) => setSupplyFormData({ ...supplyFormData, name: e.target.value })}
+                      placeholder="Enter supply name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">Amount *</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      required
+                      min="0"
+                      value={supplyFormData.amount}
+                      onChange={(e) => setSupplyFormData({ ...supplyFormData, amount: parseFloat(e.target.value) || 0 })}
+                      placeholder="Enter amount"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone_number">Phone Number</Label>
+                    <Input
+                      id="phone_number"
+                      type="tel"
+                      value={supplyFormData.phone_number}
+                      onChange={(e) => setSupplyFormData({ ...supplyFormData, phone_number: e.target.value })}
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="shop">Shop *</Label>
+                    <Select value={supplyFormData.shop} onValueChange={(value) => setSupplyFormData({ ...supplyFormData, shop: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a shop" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {shops.map((shop) => (
+                          <SelectItem key={shop.id} value={shop.name}>
+                            {shop.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    {editingSupply ? "Update" : "Add"} Supply
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
-      ) : (
+      </div>
+
+      {/* Rest of the Supplies component */}
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>All Supplies</CardTitle>
-            <CardDescription>View and manage your supply inventory</CardDescription>
+            <CardTitle>Total Supplies</CardTitle>
+            <CardDescription>Items in inventory</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="text-3xl font-bold">{filteredSupplies.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Total Amount</CardTitle>
+            <CardDescription>Combined quantity</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">
+              {filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Supply List</CardTitle>
+          <CardDescription>
+            {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} inventory
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {supplies.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground mb-4">No supplies found.</p>
+              <Button onClick={() => setIsDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Your First Supply
+              </Button>
+            </div>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -267,24 +371,43 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                   <TableHead>Amount</TableHead>
                   <TableHead>Phone Number</TableHead>
                   <TableHead>Shop</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {supplies.map((supply) => (
+                {filteredSupplies.map((supply) => (
                   <TableRow key={supply.id}>
                     <TableCell className="font-medium">{supply.name}</TableCell>
                     <TableCell>{supply.amount}</TableCell>
-                    <TableCell>{supply.phone_number}</TableCell>
-                    <TableCell>{supply.shop}</TableCell>
-                    <TableCell>{new Date(supply.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{supply.phone_number || "N/A"}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{supply.shop}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(supply)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(supply.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
