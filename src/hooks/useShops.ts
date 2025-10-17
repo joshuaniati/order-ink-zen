@@ -1,55 +1,74 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface Shop {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
 export const useShops = () => {
-  const [shops, setShops] = useState<string[]>([]);
+  const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchShops = async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      // Fetch shops from all tables to get comprehensive list
-      const [suppliesResponse, ordersResponse, incomeResponse] = await Promise.all([
-        supabase.from('supplies').select('shop'),
-        supabase.from('orders').select('shop'),
-        supabase.from('income_records').select('shop')
+      const { data, error } = await supabase
+        .from('shops')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+
+      setShops(data || []);
+    } catch (err: any) {
+      console.error('Error fetching shops:', err);
+      setError(err.message);
+      // Fallback to default shops if table doesn't exist
+      setShops([
+        { id: '1', name: 'A', created_at: new Date().toISOString() },
+        { id: '2', name: 'B', created_at: new Date().toISOString() },
+        { id: '3', name: 'C', created_at: new Date().toISOString() }
       ]);
-
-      // Combine all shop values from different tables
-      const allShops = new Set<string>();
-      
-      // Add shops from supplies
-      suppliesResponse.data?.forEach(item => {
-        if (item.shop) allShops.add(item.shop);
-      });
-      
-      // Add shops from orders
-      ordersResponse.data?.forEach(item => {
-        if (item.shop) allShops.add(item.shop);
-      });
-      
-      // Add shops from income records
-      incomeResponse.data?.forEach(item => {
-        if (item.shop) allShops.add(item.shop);
-      });
-
-      // Convert Set to array and sort
-      const uniqueShops = Array.from(allShops).sort();
-      
-      // If no shops found in database, use defaults
-      if (uniqueShops.length === 0) {
-        setShops(['A', 'B', 'C']);
-      } else {
-        setShops(uniqueShops);
-      }
-      
-    } catch (error) {
-      console.error('Error fetching shops:', error);
-      // Fallback to default shops
-      setShops(['A', 'B', 'C']);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const addShop = async (shopName: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('shops')
+        .insert([{ name: shopName }])
+        .select();
+
+      if (error) throw error;
+
+      await fetchShops(); // Refresh the list
+      return data?.[0];
+    } catch (error: any) {
+      console.error('Error adding shop:', error);
+      throw error;
+    }
+  };
+
+  const deleteShop = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('shops')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await fetchShops(); // Refresh the list
+    } catch (error: any) {
+      console.error('Error deleting shop:', error);
+      throw error;
     }
   };
 
@@ -57,9 +76,12 @@ export const useShops = () => {
     fetchShops();
   }, []);
 
-  const refreshShops = () => {
-    fetchShops();
+  return {
+    shops,
+    loading,
+    error,
+    refreshShops: fetchShops,
+    addShop,
+    deleteShop
   };
-
-  return { shops, loading, refreshShops };
 };
