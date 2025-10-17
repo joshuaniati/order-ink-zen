@@ -41,12 +41,26 @@ export const useShops = () => {
 
   const addShop = async (shopName: string) => {
     try {
+      // Check if shop already exists
+      const existingShop = shops.find(shop => 
+        shop.name.toLowerCase() === shopName.toLowerCase()
+      );
+      
+      if (existingShop) {
+        throw new Error(`Shop "${shopName}" already exists`);
+      }
+
       const { data, error } = await supabase
         .from('shops')
         .insert([{ name: shopName }])
         .select();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') { // Unique constraint violation
+          throw new Error(`Shop "${shopName}" already exists`);
+        }
+        throw error;
+      }
 
       await fetchShops(); // Refresh the list
       return data?.[0];
