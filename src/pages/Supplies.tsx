@@ -6,9 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useShopManagement } from "@/hooks/useShopManagement";
 
 interface SuppliesProps {
   selectedShop: Shop;
@@ -19,6 +21,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tablesExist, setTablesExist] = useState<boolean | null>(null);
+  const { shops, refreshShops } = useShopManagement();
   
   const [formData, setFormData] = useState({
     name: "",
@@ -95,6 +98,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
       
       toast.success("Supply added successfully!");
       await fetchSupplies();
+      refreshShops();
       setIsDialogOpen(false);
       setFormData({
         name: "",
@@ -211,14 +215,22 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="shop">Shop *</Label>
-                <Input
-                  id="shop"
-                  type="text"
+                <Select
                   required
                   value={formData.shop}
-                  onChange={(e) => setFormData({ ...formData, shop: e.target.value })}
-                  placeholder="Enter shop name"
-                />
+                  onValueChange={(value) => setFormData({ ...formData, shop: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a shop" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {shops.map((shop) => (
+                      <SelectItem key={shop} value={shop}>
+                        {shop}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -233,13 +245,46 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
         </DialogContent>
       </Dialog>
 
-      <div className="text-center py-12">
-        <p className="text-muted-foreground mb-4">No supplies found. Add your first supply to get started.</p>
-        <Button onClick={() => setIsDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Your First Supply
-        </Button>
-      </div>
+{supplies.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground mb-4">No supplies found. Add your first supply to get started.</p>
+          <Button onClick={() => setIsDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Your First Supply
+          </Button>
+        </div>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>All Supplies</CardTitle>
+            <CardDescription>View and manage your supply inventory</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Phone Number</TableHead>
+                  <TableHead>Shop</TableHead>
+                  <TableHead>Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {supplies.map((supply) => (
+                  <TableRow key={supply.id}>
+                    <TableCell className="font-medium">{supply.name}</TableCell>
+                    <TableCell>{supply.amount}</TableCell>
+                    <TableCell>{supply.phone_number}</TableCell>
+                    <TableCell>{supply.shop}</TableCell>
+                    <TableCell>{new Date(supply.created_at).toLocaleDateString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
