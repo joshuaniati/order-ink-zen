@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useShops } from "@/hooks/useShops";
 import type { Tables } from "@/integrations/supabase/types";
 
 interface CashUpProps {
@@ -25,6 +26,7 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<IncomeRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const { shops, loading: shopsLoading } = useShops();
   
   const today = new Date().toISOString().split('T')[0];
   
@@ -38,6 +40,13 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
     expenses: 0,
     notes: "",
   });
+
+  // Set default shop when shops load
+  useEffect(() => {
+    if (shops.length > 0 && !formData.shop) {
+      setFormData(prev => ({ ...prev, shop: shops[0].name }));
+    }
+  }, [shops]);
 
   // Fetch data from Supabase
   useEffect(() => {
@@ -172,7 +181,7 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
     setEditingRecord(null);
     setFormData({
       date: today,
-      shop: "",
+      shop: shops[0]?.name || "",
       cash_amount: 0,
       card_machine_amount: 0,
       account_amount: 0,
@@ -196,7 +205,7 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
   const weeklyExpenses = weeklyRecords.reduce((sum, r) => sum + r.expenses, 0);
   const weeklyNet = weeklyIncome - weeklyExpenses;
 
-  if (loading) {
+  if (loading || shopsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-lg">Loading cash up records...</div>
@@ -241,14 +250,18 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="shop">Shop *</Label>
-                <Input
-                  id="shop"
-                  type="text"
-                  required
-                  value={formData.shop}
-                  onChange={(e) => setFormData({ ...formData, shop: e.target.value as Shop })}
-                  placeholder="Enter shop name"
-                />
+                <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value as Shop })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a shop" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {shops.map((shop) => (
+                      <SelectItem key={shop.id} value={shop.name}>
+                        {shop.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="cash_amount">Daily Cash Amount (ZAR) *</Label>

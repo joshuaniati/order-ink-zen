@@ -352,8 +352,65 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
         </div>
       </div>
 
-      {/* Rest of the Supplies component remains the same */}
-      {/* ... */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Supplies List</CardTitle>
+          <CardDescription>
+            {selectedShop === "All" ? "All shops" : selectedShop} - {filteredSupplies.length} supplies
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {filteredSupplies.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No supplies found. Click "Add Supply" to create one.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Phone Number</TableHead>
+                  <TableHead>Shop</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSupplies.map((supply) => (
+                  <TableRow key={supply.id}>
+                    <TableCell className="font-medium">{supply.name}</TableCell>
+                    <TableCell>{supply.amount}</TableCell>
+                    <TableCell>{supply.phone_number || '-'}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{supply.shop}</Badge>
+                    </TableCell>
+                    <TableCell>{new Date(supply.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(supply)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(supply.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

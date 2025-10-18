@@ -118,7 +118,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             shop: formData.shop,
             notes: formData.notes,
             status,
-            updated_at: new Date().toISOString(),
           })
           .eq('id', editingOrder.id);
 
@@ -222,7 +221,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           shop: selectedShop,
           week_start_date: weekStartStr,
           budget_amount: budgetAmount,
-          updated_at: new Date().toISOString(),
         }, {
           onConflict: 'shop,week_start_date'
         });
@@ -421,9 +419,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                         {shops.map((shop) => (
                           <SelectItem key={shop} value={shop}>{shop}</SelectItem>
                         ))}
-                        <SelectItem value="A">Shop A</SelectItem>
-                        <SelectItem value="B">Shop B</SelectItem>
-                        <SelectItem value="C">Shop C</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

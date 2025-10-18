@@ -28,12 +28,7 @@ export const useShops = () => {
     } catch (err: any) {
       console.error('Error fetching shops:', err);
       setError(err.message);
-      // Fallback to default shops if table doesn't exist
-      setShops([
-        { id: '1', name: 'A', created_at: new Date().toISOString() },
-        { id: '2', name: 'B', created_at: new Date().toISOString() },
-        { id: '3', name: 'C', created_at: new Date().toISOString() }
-      ]);
+      setShops([]); // No fallback - use empty array
     } finally {
       setLoading(false);
     }

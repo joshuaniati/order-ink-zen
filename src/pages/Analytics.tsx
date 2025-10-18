@@ -62,13 +62,14 @@ const Analytics = ({ selectedShop }: AnalyticsProps) => {
     };
   });
 
-  // Shop comparison
-  const shopData = ["A", "B", "C"].map(shop => {
+  // Shop comparison - dynamically get unique shops from records
+  const uniqueShops = [...new Set(records.map(r => r.shop))];
+  const shopData = uniqueShops.map(shop => {
     const shopRecords = records.filter(r => r.shop === shop);
     const income = shopRecords.reduce((sum, r) => sum + r.daily_income, 0);
     const expenses = shopRecords.reduce((sum, r) => sum + r.expenses, 0);
     return {
-      shop: `Shop ${shop}`,
+      shop,
       income,
       expenses,
       net: income - expenses,
