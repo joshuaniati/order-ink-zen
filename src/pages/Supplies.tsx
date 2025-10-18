@@ -24,7 +24,6 @@ interface Supply {
   phone_number?: string;
   shop: string;
   created_at: string;
-  updated_at: string;
 }
 
 const Supplies = ({ selectedShop }: SuppliesProps) => {
@@ -96,7 +95,6 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
             amount: supplyFormData.amount,
             phone_number: supplyFormData.phone_number,
             shop: supplyFormData.shop,
-            updated_at: new Date().toISOString(),
           })
           .eq('id', editingSupply.id);
 
