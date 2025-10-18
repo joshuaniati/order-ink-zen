@@ -10,10 +10,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2, TrendingDown, TrendingUp } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { WeeklyBudgetCard } from "@/components/orders/WeeklyBudgetCard";
 
 interface OrdersProps {
   selectedShop: Shop;
@@ -29,9 +30,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const [shops, setShops] = useState<string[]>([]);
   const [weeklyBudgets, setWeeklyBudgets] = useState<WeeklyBudget[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [budgetAmount, setBudgetAmount] = useState(0);
   const [loading, setLoading] = useState(true);
   
   const today = new Date().toISOString().split('T')[0];
@@ -203,56 +202,27 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     });
   };
 
-  const handleBudgetSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedShop === "All") {
-      toast.error("Please select a specific shop to set budget");
-      return;
-    }
-
-    try {
-      const now = new Date();
-      const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
-      const weekStartStr = weekStart.toISOString().split('T')[0];
-
-      const { error } = await supabase
-        .from('weekly_budgets')
-        .upsert({
-          shop: selectedShop,
-          week_start_date: weekStartStr,
-          budget_amount: budgetAmount,
-        }, {
-          onConflict: 'shop,week_start_date'
-        });
-
-      if (error) throw error;
-
-      await fetchData();
-      setIsBudgetDialogOpen(false);
-      setBudgetAmount(0);
-      toast.success("Weekly budget set successfully");
-    } catch (error: any) {
-      console.error('Error setting budget:', error);
-      toast.error(`Failed to set budget: ${error.message}`);
-    }
+  const handleBudgetUpdate = async () => {
+    await fetchData();
   };
 
   const now = new Date();
   const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
   const weekStartStr = weekStart.toISOString().split('T')[0];
   
-  const currentBudget = selectedShop !== "All" 
-    ? weeklyBudgets.find(b => b.shop === selectedShop && b.week_start_date === weekStartStr)
-    : null;
-  
-  const weekOrders = filteredOrders.filter(o => {
-    const orderDate = new Date(o.order_date);
-    return orderDate >= new Date(weekStartStr);
+  // Get budgets and orders for each shop
+  const shopsWithBudgets = shops.map(shop => {
+    const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === weekStartStr);
+    const shopWeekOrders = orders.filter(o => {
+      const orderDate = new Date(o.order_date);
+      return o.shop === shop && orderDate >= new Date(weekStartStr);
+    });
+    return {
+      shop,
+      budget,
+      orders: shopWeekOrders
+    };
   });
-  
-  const totalOrderAmount = weekOrders.reduce((sum, o) => sum + o.order_amount, 0);
-  const budgetBalance = currentBudget ? currentBudget.budget_amount - totalOrderAmount : 0;
-  const isOverBudget = currentBudget && totalOrderAmount > currentBudget.budget_amount;
 
   const pendingOrders = filteredOrders.filter(o => o.status === "Pending");
   const partialOrders = filteredOrders.filter(o => o.status === "Partial");
@@ -283,38 +253,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <p className="text-muted-foreground">Manage purchase orders and deliveries</p>
         </div>
         <div className="flex gap-2">
-          <Dialog open={isBudgetDialogOpen} onOpenChange={setIsBudgetDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">Set Weekly Budget</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Set Weekly Budget</DialogTitle>
-                <DialogDescription>
-                  Set the budget for {selectedShop !== "All" ? selectedShop : "a shop"} for this week
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleBudgetSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="budget">Budget Amount (ZAR) *</Label>
-                  <Input
-                    id="budget"
-                    type="number"
-                    step="0.01"
-                    required
-                    value={budgetAmount}
-                    onChange={(e) => setBudgetAmount(parseFloat(e.target.value))}
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsBudgetDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit">Set Budget</Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) resetForm();
@@ -445,45 +383,34 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       </div>
 
-      {currentBudget && selectedShop !== "All" && (
-        <Card className={isOverBudget ? "border-red-200" : "border-green-200"}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {isOverBudget ? (
-                <TrendingDown className="h-5 w-5 text-red-600" />
-              ) : (
-                <TrendingUp className="h-5 w-5 text-green-600" />
-              )}
-              Weekly Budget Status
-            </CardTitle>
-            <CardDescription>Current week budget tracking for {selectedShop}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Budget</p>
-                <p className="text-2xl font-bold">{formatCurrency(currentBudget.budget_amount)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Orders Total</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalOrderAmount)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Balance</p>
-                <p className={`text-2xl font-bold ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>
-                  {formatCurrency(Math.abs(budgetBalance))}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <Badge variant={isOverBudget ? "destructive" : "default"} className="text-base">
-                  {isOverBudget ? "Over Budget" : "Under Budget"}
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Weekly Budgets Section */}
+      <div>
+        <h3 className="text-lg font-semibold mb-3">
+          {selectedShop === "All" ? "Weekly Budgets - All Shops" : `Weekly Budget - ${selectedShop}`}
+        </h3>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {selectedShop === "All" ? (
+            shopsWithBudgets.map(({ shop, budget, orders: shopOrders }) => (
+              <WeeklyBudgetCard
+                key={shop}
+                shop={shop}
+                currentBudget={budget}
+                weekOrders={shopOrders}
+                weekStartStr={weekStartStr}
+                onBudgetUpdate={handleBudgetUpdate}
+              />
+            ))
+          ) : (
+            <WeeklyBudgetCard
+              shop={selectedShop}
+              currentBudget={shopsWithBudgets.find(s => s.shop === selectedShop)?.budget || null}
+              weekOrders={shopsWithBudgets.find(s => s.shop === selectedShop)?.orders || []}
+              weekStartStr={weekStartStr}
+              onBudgetUpdate={handleBudgetUpdate}
+            />
+          )}
+        </div>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
