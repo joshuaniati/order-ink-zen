@@ -329,23 +329,32 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                       onValueChange={(value) => setSupplyFormData({ ...supplyFormData, shop: value })}
                       required
                     >
-                      <SelectTrigger className="bg-background">
+                      <SelectTrigger className="bg-card border-input">
                         <SelectValue placeholder="Select a shop" />
                       </SelectTrigger>
-                      <SelectContent className="bg-background z-50">
+                      <SelectContent className="bg-card border-border z-[100] max-h-[300px] overflow-auto">
                         {shops.length === 0 ? (
-                          <div className="p-2 text-sm text-muted-foreground">
+                          <div className="p-4 text-sm text-muted-foreground text-center">
                             No shops available. Please add a shop first.
                           </div>
                         ) : (
                           shops.map((shop) => (
-                            <SelectItem key={shop.id} value={shop.name}>
+                            <SelectItem 
+                              key={shop.id} 
+                              value={shop.name}
+                              className="cursor-pointer"
+                            >
                               {shop.name}
                             </SelectItem>
                           ))
                         )}
                       </SelectContent>
                     </Select>
+                    {shops.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {shops.length} shop{shops.length !== 1 ? 's' : ''} available
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
