@@ -324,16 +324,26 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="shop">Shop *</Label>
-                    <Select value={supplyFormData.shop} onValueChange={(value) => setSupplyFormData({ ...supplyFormData, shop: value })}>
-                      <SelectTrigger>
+                    <Select 
+                      value={supplyFormData.shop} 
+                      onValueChange={(value) => setSupplyFormData({ ...supplyFormData, shop: value })}
+                      required
+                    >
+                      <SelectTrigger className="bg-background">
                         <SelectValue placeholder="Select a shop" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {shops.map((shop) => (
-                          <SelectItem key={shop.id} value={shop.name}>
-                            {shop.name}
-                          </SelectItem>
-                        ))}
+                      <SelectContent className="bg-background z-50">
+                        {shops.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground">
+                            No shops available. Please add a shop first.
+                          </div>
+                        ) : (
+                          shops.map((shop) => (
+                            <SelectItem key={shop.id} value={shop.name}>
+                              {shop.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
