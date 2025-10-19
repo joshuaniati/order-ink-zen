@@ -10,9 +10,11 @@ interface AnalyticsProps {
 }
 
 type IncomeRecord = Tables<'income_records'>;
+type ShopRecord = Tables<'shops'>;
 
 const Analytics = ({ selectedShop }: AnalyticsProps) => {
   const [records, setRecords] = useState<IncomeRecord[]>([]);
+  const [shops, setShops] = useState<ShopRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch data from Supabase
@@ -21,16 +23,24 @@ const Analytics = ({ selectedShop }: AnalyticsProps) => {
       try {
         setLoading(true);
         
-        const { data: recordsData, error } = await supabase
-          .from('income_records')
-          .select('*')
-          .order('date', { ascending: true });
+        const [recordsResponse, shopsResponse] = await Promise.all([
+          supabase
+            .from('income_records')
+            .select('*')
+            .order('date', { ascending: true }),
+          supabase
+            .from('shops')
+            .select('*')
+            .order('name', { ascending: true })
+        ]);
 
-        if (error) throw error;
+        if (recordsResponse.error) throw recordsResponse.error;
+        if (shopsResponse.error) throw shopsResponse.error;
 
-        setRecords(recordsData || []);
+        setRecords(recordsResponse.data || []);
+        setShops(shopsResponse.data || []);
       } catch (error) {
-        console.error('Error fetching income records:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
@@ -62,18 +72,17 @@ const Analytics = ({ selectedShop }: AnalyticsProps) => {
     };
   });
 
-  // Shop comparison - dynamically get unique shops from records
-  const uniqueShops = [...new Set(records.map(r => r.shop))];
-  const shopData = uniqueShops.map(shop => {
-    const shopRecords = records.filter(r => r.shop === shop);
-    const income = shopRecords.reduce((sum, r) => sum + r.daily_income, 0);
-    const expenses = shopRecords.reduce((sum, r) => sum + r.expenses, 0);
+  // Shop comparison - use all shops from shops table
+  const shopData = shops.map(shop => {
+    const shopRecords = records.filter(r => r.shop === shop.name);
+    const income = shopRecords.reduce((sum, r) => sum + Number(r.daily_income), 0);
+    const expenses = shopRecords.reduce((sum, r) => sum + Number(r.expenses), 0);
     return {
-      shop,
+      shop: shop.name,
       income,
       expenses,
       net: income - expenses,
-      margin: income > 0 ? ((income - expenses) / income * 100).toFixed(1) : 0,
+      margin: income > 0 ? ((income - expenses) / income * 100).toFixed(1) : '0',
     };
   });
 
@@ -275,37 +284,43 @@ const Analytics = ({ selectedShop }: AnalyticsProps) => {
         <Card>
           <CardHeader>
             <CardTitle>Shop Performance Comparison</CardTitle>
-            <CardDescription>All-time performance by shop</CardDescription>
+            <CardDescription>All-time performance by shop ({shops.length} {shops.length === 1 ? 'shop' : 'shops'})</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {shopData.map((shop) => (
-                <div key={shop.shop} className="border-b pb-4 last:border-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold">{shop.shop}</h4>
-                    <span className="text-sm text-muted-foreground">
-                      Profit Margin: {shop.margin}%
-                    </span>
+            {shopData.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No shops found. Add shops in the Supplies page first.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {shopData.map((shop) => (
+                  <div key={shop.shop} className="border-b pb-4 last:border-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold">{shop.shop}</h4>
+                      <span className="text-sm text-muted-foreground">
+                        Profit Margin: {shop.margin}%
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Revenue</p>
+                        <p className="font-bold text-green-600">{formatCurrency(shop.income)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Expenses</p>
+                        <p className="font-bold text-red-600">{formatCurrency(shop.expenses)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Net Income</p>
+                        <p className={`font-bold ${shop.net >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {formatCurrency(shop.net)}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Revenue</p>
-                      <p className="font-bold text-green-600">{formatCurrency(shop.income)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Expenses</p>
-                      <p className="font-bold text-red-600">{formatCurrency(shop.expenses)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Net Income</p>
-                      <p className={`font-bold ${shop.net >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {formatCurrency(shop.net)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
