@@ -1,14 +1,13 @@
-import { useState, useEffect } from "react";
 import { Shop } from "@/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getShops, saveShop } from "@/lib/storage";
-import { Plus } from "lucide-react";
+import { Plus, Store } from "lucide-react";
 import { toast } from "sonner";
-import { Store } from "lucide-react";
+import { useShops } from "@/hooks/useShops";
+import { useState } from "react";
 
 interface HeaderProps {
   selectedShop: Shop;
@@ -16,38 +15,21 @@ interface HeaderProps {
 }
 
 const Header = ({ selectedShop, onShopChange }: HeaderProps) => {
-  const [shops, setShops] = useState<string[]>([]);
+  const { shops, addShop } = useShops();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newShopName, setNewShopName] = useState("");
 
-  // Initialize shops and remove defaults
-  useEffect(() => {
-    const currentShops = getShops();
-    const defaultShops = ["Shop A", "Shop B", "Shop C"];
-    
-    // Filter out the default shops
-    const filteredShops = currentShops.filter(shop => !defaultShops.includes(shop));
-    
-    // If we filtered anything out, update storage
-    if (filteredShops.length !== currentShops.length) {
-      // Clear all shops from storage
-      localStorage.removeItem('shops');
-      // Re-add only the non-default shops
-      filteredShops.forEach(shop => saveShop(shop));
-      setShops(filteredShops);
-    } else {
-      setShops(currentShops);
-    }
-  }, []);
-
-  const handleAddShop = (e: React.FormEvent) => {
+  const handleAddShop = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newShopName.trim()) {
-      saveShop(newShopName.trim());
-      setShops(getShops());
-      setNewShopName("");
-      setIsDialogOpen(false);
-      toast.success("Shop added successfully");
+      try {
+        await addShop(newShopName.trim());
+        setNewShopName("");
+        setIsDialogOpen(false);
+        toast.success("Shop added successfully");
+      } catch (error: any) {
+        toast.error(error.message || "Failed to add shop");
+      }
     }
   };
 
@@ -102,10 +84,10 @@ const Header = ({ selectedShop, onShopChange }: HeaderProps) => {
               <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-card border-border z-[100]">
                 <SelectItem value="All">All Shops</SelectItem>
                 {shops.map((shop) => (
-                  <SelectItem key={shop} value={shop}>{shop}</SelectItem>
+                  <SelectItem key={shop.id} value={shop.name}>{shop.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

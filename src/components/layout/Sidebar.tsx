@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useShopManagement } from "@/hooks/useShopManagement";
+import { useShops } from "@/hooks/useShops";
 import { 
   LayoutDashboard, 
   Package, 
@@ -13,7 +13,7 @@ import {
 
 const Sidebar = () => {
   const location = useLocation();
-  const { shops } = useShopManagement();
+  const { shops } = useShops();
 
   const baseNavigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -25,8 +25,8 @@ const Sidebar = () => {
   ];
 
   const shopNavigation = shops.map(shop => ({
-    name: shop,
-    href: `/shop/${encodeURIComponent(shop)}`,
+    name: shop.name,
+    href: `/shop/${encodeURIComponent(shop.name)}`,
     icon: Store
   }));
 
