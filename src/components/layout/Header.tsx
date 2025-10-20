@@ -34,27 +34,29 @@ const Header = ({ selectedShop, onShopChange }: HeaderProps) => {
   };
 
   return (
-    <header className="border-b bg-card">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <Store className="h-6 w-6 text-primary-foreground" />
+    <header className="border-b bg-card sticky top-0 z-50">
+      <div className="container mx-auto px-3 md:px-4 py-3 md:py-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-primary">
+              <Store className="h-4 w-4 md:h-6 md:w-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Supply Manager</h1>
-              <p className="text-sm text-muted-foreground">Multi-Shop Management System</p>
+              <h1 className="text-base md:text-xl font-bold text-foreground">Supply Manager</h1>
+              <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">Multi-Shop Management System</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <Plus className="h-4 w-4" />
+                <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="sm:hidden md:inline">Add Shop</span>
+                  <span className="hidden sm:inline md:hidden">Add</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="w-[90vw] sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Add New Shop</DialogTitle>
                   <DialogDescription>Enter the name for your new shop</DialogDescription>
@@ -79,18 +81,20 @@ const Header = ({ selectedShop, onShopChange }: HeaderProps) => {
                 </form>
               </DialogContent>
             </Dialog>
-            <span className="text-sm text-muted-foreground">Shop:</span>
-            <Select value={selectedShop} onValueChange={(value) => onShopChange(value)}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border z-[100]">
-                <SelectItem value="All">All Shops</SelectItem>
-                {shops.map((shop) => (
-                  <SelectItem key={shop.id} value={shop.name}>{shop.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <span className="text-xs md:text-sm text-muted-foreground">Shop:</span>
+              <Select value={selectedShop} onValueChange={(value) => onShopChange(value)}>
+                <SelectTrigger className="w-full sm:w-40 md:w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border z-[100]">
+                  <SelectItem value="All">All Shops</SelectItem>
+                  {shops.map((shop) => (
+                    <SelectItem key={shop.id} value={shop.name}>{shop.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </div>

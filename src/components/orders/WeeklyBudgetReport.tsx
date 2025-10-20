@@ -35,16 +35,18 @@ export const WeeklyBudgetReport = ({
   const pendingOrders = weekOrders.filter(o => o.status === 'pending');
 
   const handlePrint = () => {
+    // This prints the actual DOM content (backend data rendered on screen)
+    // NOT a screenshot - it uses browser's native print with the real data
     window.print();
   };
 
   return (
     <Card className="print:shadow-none print:border-none">
       <CardHeader className="print:pb-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <CardTitle className="text-2xl print:text-3xl">{shop} - Weekly Budget Report</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
+            <CardTitle className="text-xl md:text-2xl print:text-3xl">{shop} - Weekly Budget Report</CardTitle>
+            <p className="text-xs md:text-sm text-muted-foreground mt-1">
               Week of {format(new Date(weekStartStr), 'MMM dd, yyyy')}
             </p>
           </div>
@@ -52,7 +54,7 @@ export const WeeklyBudgetReport = ({
             onClick={handlePrint} 
             variant="outline" 
             size="sm"
-            className="print:hidden"
+            className="print:hidden w-full md:w-auto"
           >
             <Printer className="h-4 w-4 mr-2" />
             Print Report
@@ -61,26 +63,26 @@ export const WeeklyBudgetReport = ({
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Budget Overview */}
-        <div className="border rounded-lg p-4 print:border-gray-300">
-          <h3 className="font-semibold text-lg mb-4">Budget Overview</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Weekly Budget</p>
-              <p className="text-xl font-bold">{formatCurrency(budgetAmount)}</p>
+        <div className="border rounded-lg p-3 md:p-4 print:border-gray-300">
+          <h3 className="font-semibold text-base md:text-lg mb-3 md:mb-4">Budget Overview</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div className="p-2 bg-muted/30 rounded-md">
+              <p className="text-xs md:text-sm text-muted-foreground">Weekly Budget</p>
+              <p className="text-lg md:text-xl font-bold">{formatCurrency(budgetAmount)}</p>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Budget Used</p>
-              <p className="text-xl font-bold text-blue-600 print:text-blue-800">{formatCurrency(budgetUsed)}</p>
+            <div className="p-2 bg-muted/30 rounded-md">
+              <p className="text-xs md:text-sm text-muted-foreground">Budget Used</p>
+              <p className="text-lg md:text-xl font-bold text-blue-600 print:text-blue-800">{formatCurrency(budgetUsed)}</p>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Remaining Budget</p>
-              <p className={`text-xl font-bold ${isOverBudget ? 'text-red-600 print:text-red-800' : 'text-green-600 print:text-green-800'}`}>
+            <div className="p-2 bg-muted/30 rounded-md">
+              <p className="text-xs md:text-sm text-muted-foreground">Remaining Budget</p>
+              <p className={`text-lg md:text-xl font-bold ${isOverBudget ? 'text-red-600 print:text-red-800' : 'text-green-600 print:text-green-800'}`}>
                 {formatCurrency(budgetRemaining)}
               </p>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Status</p>
-              <p className={`text-xl font-bold ${isOverBudget ? 'text-red-600 print:text-red-800' : 'text-green-600 print:text-green-800'}`}>
+            <div className="p-2 bg-muted/30 rounded-md">
+              <p className="text-xs md:text-sm text-muted-foreground">Status</p>
+              <p className={`text-lg md:text-xl font-bold ${isOverBudget ? 'text-red-600 print:text-red-800' : 'text-green-600 print:text-green-800'}`}>
                 {isOverBudget ? 'Over Budget' : 'Under Budget'}
               </p>
             </div>
@@ -88,9 +90,9 @@ export const WeeklyBudgetReport = ({
         </div>
 
         {/* Order Summary */}
-        <div className="border rounded-lg p-4 print:border-gray-300">
-          <h3 className="font-semibold text-lg mb-4">Order Summary</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="border rounded-lg p-3 md:p-4 print:border-gray-300">
+          <h3 className="font-semibold text-base md:text-lg mb-3 md:mb-4">Order Summary</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Total Orders</p>
               <p className="text-xl font-bold">{weekOrders.length}</p>
@@ -119,8 +121,8 @@ export const WeeklyBudgetReport = ({
         </div>
 
         {/* Order Details */}
-        <div className="border rounded-lg p-4 print:border-gray-300">
-          <h3 className="font-semibold text-lg mb-4">Order Details</h3>
+        <div className="border rounded-lg p-3 md:p-4 print:border-gray-300">
+          <h3 className="font-semibold text-base md:text-lg mb-3 md:mb-4">Order Details</h3>
           
           {/* Delivered Orders */}
           {deliveredOrders.length > 0 && (

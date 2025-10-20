@@ -10,9 +10,11 @@ const MainLayout = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header selectedShop={selectedShop} onShopChange={setSelectedShop} />
-      <div className="flex">
-        <Sidebar />
-        <main className="flex-1 p-6">
+      <div className="flex flex-col md:flex-row">
+        <aside className="hidden md:block">
+          <Sidebar />
+        </aside>
+        <main className="flex-1 p-4 md:p-6 w-full overflow-x-auto">
           <Outlet context={{ selectedShop }} />
         </main>
       </div>
