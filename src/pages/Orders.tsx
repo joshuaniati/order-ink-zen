@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { WeeklyBudgetCard } from "@/components/orders/WeeklyBudgetCard";
+import { WeeklyBudgetReport } from "@/components/orders/WeeklyBudgetReport";
 
 interface OrdersProps {
   selectedShop: Shop;
@@ -411,6 +412,18 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           )}
         </div>
       </div>
+
+      {/* Weekly Budget Report - Printable */}
+      {selectedShop !== "All" && (
+        <div>
+          <WeeklyBudgetReport
+            shop={selectedShop}
+            currentBudget={shopsWithBudgets.find(s => s.shop === selectedShop)?.budget || null}
+            weekOrders={shopsWithBudgets.find(s => s.shop === selectedShop)?.orders || []}
+            weekStartStr={weekStartStr}
+          />
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>

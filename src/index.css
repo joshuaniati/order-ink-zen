@@ -112,6 +112,68 @@ All colors MUST be HSL.
   }
 }
 
+/* Print styles */
+@media print {
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+
+  .print\:border-none {
+    border: none !important;
+  }
+
+  .print\:border-gray-200 {
+    border-color: #e5e7eb !important;
+  }
+
+  .print\:border-gray-300 {
+    border-color: #d1d5db !important;
+  }
+
+  .print\:text-3xl {
+    font-size: 1.875rem !important;
+    line-height: 2.25rem !important;
+  }
+
+  .print\:pb-4 {
+    padding-bottom: 1rem !important;
+  }
+
+  .print\:text-blue-800 {
+    color: #1e40af !important;
+  }
+
+  .print\:text-green-800 {
+    color: #166534 !important;
+  }
+
+  .print\:text-red-800 {
+    color: #991b1b !important;
+  }
+
+  .print\:text-amber-800 {
+    color: #92400e !important;
+  }
+}
+
 /* Print styles for reports */
 @media print {
   /* Hide elements that shouldn't be printed */
