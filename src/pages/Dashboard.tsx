@@ -1,7 +1,7 @@
 import { Shop } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import MetricCard from "@/components/dashboard/MetricCard";
-import { Package, ShoppingCart, DollarSign, TrendingUp } from "lucide-react";
+import { Package, ShoppingCart, DollarSign, TrendingUp, Calendar } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from 'react';
@@ -14,7 +14,6 @@ interface DashboardProps {
 type Supply = Tables<'supplies'>;
 type Order = Tables<'orders'>;
 type IncomeRecord = Tables<'income_records'>;
-
 type WeeklyBudget = Tables<'weekly_budgets'>;
 
 const Dashboard = ({ selectedShop }: DashboardProps) => {
@@ -90,7 +89,28 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     return monday.toISOString().split('T')[0];
   };
 
+  // Get previous week's start and end dates
+  const getPreviousWeekRange = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const currentWeekStartDiff = now.getDate() - day + (day === 0 ? -6 : 1);
+    
+    const previousWeekStart = new Date(now);
+    previousWeekStart.setDate(currentWeekStartDiff - 7);
+    previousWeekStart.setHours(0, 0, 0, 0);
+    
+    const previousWeekEnd = new Date(previousWeekStart);
+    previousWeekEnd.setDate(previousWeekStart.getDate() + 6);
+    previousWeekEnd.setHours(23, 59, 59, 999);
+    
+    return {
+      start: previousWeekStart.toISOString().split('T')[0],
+      end: previousWeekEnd.toISOString().split('T')[0]
+    };
+  };
+
   const currentWeekStart = getCurrentWeekStart();
+  const previousWeekRange = getPreviousWeekRange();
 
   // Get weekly budget for current week and shop
   const filteredBudgets = selectedShop === "All" 
@@ -112,6 +132,35 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
 
   const totalDelivered = currentWeekOrders.reduce(
     (sum, o) => sum + (Number(o.amount_delivered) || 0), 0
+  );
+
+  // Calculate previous week orders delivered this week
+  // This looks for orders placed in previous week that were delivered in current week
+  const previousWeekOrdersDeliveredThisWeek = filteredOrders.filter(
+    o => {
+      const orderDate = o.order_date;
+      const isPreviousWeekOrder = orderDate >= previousWeekRange.start && orderDate <= previousWeekRange.end;
+      
+      // For delivery detection, we need to check if there's a delivery date field
+      // If not, we'll use the status and assume delivery happens when status changes
+      let isDeliveredThisWeek = false;
+      
+      // Check if order has delivery_date field (common in order systems)
+      if (o.delivery_date) {
+        isDeliveredThisWeek = o.delivery_date >= currentWeekStart;
+      } else {
+        // Fallback: check if order status indicates it was delivered this week
+        // This assumes that when an order is delivered, its status changes and updated_at is set
+        const lastUpdated = o.updated_at || o.created_at;
+        isDeliveredThisWeek = o.status === "Delivered" && lastUpdated >= currentWeekStart;
+      }
+      
+      return isPreviousWeekOrder && isDeliveredThisWeek;
+    }
+  );
+
+  const previousWeekOrdersDeliveredAmount = previousWeekOrdersDeliveredThisWeek.reduce(
+    (sum, o) => sum + (Number(o.amount_delivered) || Number(o.order_amount) || 0), 0
   );
 
   // Calculate budget savings (difference when delivered < ordered)
@@ -196,10 +245,10 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
           variant={todayIncome >= 0 ? "success" : "destructive"}
         />
         <MetricCard
-          title="Budget Savings"
-          value={formatCurrency(budgetSavings)}
-          description="Undelivered amounts"
-          icon={DollarSign}
+          title="Prev Week Delivered"
+          value={formatCurrency(previousWeekOrdersDeliveredAmount)}
+          description={`${previousWeekOrdersDeliveredThisWeek.length} orders`}
+          icon={Calendar}
           variant="success"
         />
       </div>
