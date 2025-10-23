@@ -1,7 +1,7 @@
 import { Shop } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import MetricCard from "@/components/dashboard/MetricCard";
-import { Package, ShoppingCart, DollarSign, TrendingUp, Calendar } from "lucide-react";
+import { Package, ShoppingCart, DollarSign, TrendingUp, Calendar, Truck, Clock, CheckCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from 'react';
@@ -130,27 +130,34 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     (sum, o) => sum + (Number(o.order_amount) || 0), 0
   );
 
-  const totalDelivered = currentWeekOrders.reduce(
-    (sum, o) => sum + (Number(o.amount_delivered) || 0), 0
+  // Calculate delivered vs pending for current week orders
+  const currentWeekDelivered = currentWeekOrders.filter(
+    o => o.status === "Delivered" || (o.delivery_date && o.delivery_date <= today)
+  );
+
+  const currentWeekDeliveredAmount = currentWeekDelivered.reduce(
+    (sum, o) => sum + (Number(o.amount_delivered) || Number(o.order_amount) || 0), 0
+  );
+
+  const currentWeekPending = currentWeekOrders.filter(
+    o => o.status !== "Delivered" && (!o.delivery_date || o.delivery_date > today)
+  );
+
+  const currentWeekPendingAmount = currentWeekPending.reduce(
+    (sum, o) => sum + (Number(o.order_amount) || 0), 0
   );
 
   // Calculate previous week orders delivered this week
-  // This looks for orders placed in previous week that were delivered in current week
   const previousWeekOrdersDeliveredThisWeek = filteredOrders.filter(
     o => {
       const orderDate = o.order_date;
       const isPreviousWeekOrder = orderDate >= previousWeekRange.start && orderDate <= previousWeekRange.end;
       
-      // For delivery detection, we need to check if there's a delivery date field
-      // If not, we'll use the status and assume delivery happens when status changes
       let isDeliveredThisWeek = false;
       
-      // Check if order has delivery_date field (common in order systems)
       if (o.delivery_date) {
         isDeliveredThisWeek = o.delivery_date >= currentWeekStart;
       } else {
-        // Fallback: check if order status indicates it was delivered this week
-        // This assumes that when an order is delivered, its status changes and updated_at is set
         const lastUpdated = o.updated_at || o.created_at;
         isDeliveredThisWeek = o.status === "Delivered" && lastUpdated >= currentWeekStart;
       }
@@ -163,7 +170,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     (sum, o) => sum + (Number(o.amount_delivered) || Number(o.order_amount) || 0), 0
   );
 
-  // Calculate budget savings (difference when delivered < ordered)
+  // Calculate budget metrics
   const budgetSavings = currentWeekOrders.reduce((sum, o) => {
     const ordered = Number(o.order_amount) || 0;
     const delivered = Number(o.amount_delivered) || 0;
@@ -173,6 +180,15 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
   const weeklyBudgetAmount = currentWeekBudget?.budget_amount || 0;
   const budgetRemaining = weeklyBudgetAmount - totalOrderAmount;
   const availableBudget = budgetRemaining + budgetSavings;
+
+  // Overall Delivery Summary Calculations
+  const totalDeliveredAll = currentWeekDeliveredAmount + previousWeekOrdersDeliveredAmount;
+  const stillAwaitingDelivery = filteredOrders.filter(o => 
+    o.status !== "Delivered" && (!o.delivery_date || o.delivery_date > today)
+  );
+  const stillAwaitingDeliveryAmount = stillAwaitingDelivery.reduce(
+    (sum, o) => sum + (Number(o.order_amount) || 0), 0
+  );
 
   if (loading) {
     return (
@@ -191,6 +207,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
         </p>
       </div>
 
+      {/* Budget Overview Section */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Weekly Budget"
@@ -207,21 +224,105 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
           variant="default"
         />
         <MetricCard
-          title="Expected Delivery"
-          value={formatCurrency(totalDelivered)}
-          description="Amount to be delivered"
-          icon={Package}
-          variant="default"
+          title="Budget Savings"
+          value={formatCurrency(budgetSavings)}
+          description="From partial deliveries"
+          icon={TrendingUp}
+          variant="success"
         />
         <MetricCard
           title="Available Budget"
           value={formatCurrency(availableBudget)}
-          description={`Savings: ${formatCurrency(budgetSavings)}`}
-          icon={TrendingUp}
+          description={`Remaining: ${formatCurrency(budgetRemaining)}`}
+          icon={DollarSign}
           variant={availableBudget >= 0 ? "success" : "warning"}
         />
       </div>
 
+      {/* This Week's Orders Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            This Week's Orders
+          </CardTitle>
+          <CardDescription>
+            Breakdown of orders placed and delivered during the current week
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <MetricCard
+              title="Orders Placed This Week"
+              value={formatCurrency(totalOrderAmount)}
+              description={`${currentWeekOrders.length} orders`}
+              icon={ShoppingCart}
+              variant="default"
+            />
+            <MetricCard
+              title="Delivered This Week"
+              value={formatCurrency(currentWeekDeliveredAmount)}
+              description={`${currentWeekDelivered.length} orders`}
+              icon={CheckCircle}
+              variant="success"
+            />
+            <MetricCard
+              title="Remaining (Not Delivered)"
+              value={formatCurrency(currentWeekPendingAmount)}
+              description={`${currentWeekPending.length} orders pending`}
+              icon={Clock}
+              variant="warning"
+            />
+            <MetricCard
+              title="Prev Week → This Week"
+              value={formatCurrency(previousWeekOrdersDeliveredAmount)}
+              description={`${previousWeekOrdersDeliveredThisWeek.length} orders`}
+              icon={Truck}
+              variant="success"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Overall Delivery Summary Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Overall Delivery Summary
+          </CardTitle>
+          <CardDescription>
+            Combined totals across all time periods
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <MetricCard
+              title="Total Delivered (All)"
+              value={formatCurrency(totalDeliveredAll)}
+              description="This week + Previous week deliveries"
+              icon={CheckCircle}
+              variant="success"
+            />
+            <MetricCard
+              title="Still Awaiting Delivery"
+              value={formatCurrency(stillAwaitingDeliveryAmount)}
+              description={`${stillAwaitingDelivery.length} orders pending`}
+              icon={Clock}
+              variant="warning"
+            />
+            <MetricCard
+              title="Grand Total Ordered"
+              value={formatCurrency(totalOrderAmount)}
+              description="This week's total spending"
+              icon={ShoppingCart}
+              variant="default"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Additional Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Total Supplies"
@@ -233,9 +334,9 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
         <MetricCard
           title="Pending Orders"
           value={pendingOrders.length.toString()}
-          description="Awaiting delivery"
+          description="All orders awaiting delivery"
           icon={ShoppingCart}
-          variant="default"
+          variant="warning"
         />
         <MetricCard
           title="Today's Net Income"
@@ -245,25 +346,32 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
           variant={todayIncome >= 0 ? "success" : "destructive"}
         />
         <MetricCard
-          title="Prev Week Delivered"
-          value={formatCurrency(previousWeekOrdersDeliveredAmount)}
-          description={`${previousWeekOrdersDeliveredThisWeek.length} orders`}
-          icon={Calendar}
-          variant="success"
+          title="Inventory Value"
+          value={formatCurrency(filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0))}
+          description="Total supply amount"
+          icon={Package}
+          variant="default"
         />
       </div>
 
+      {/* Supplies Summary */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Total Supplies</CardTitle>
-            <CardDescription>Inventory summary</CardDescription>
+            <CardTitle>Inventory Summary</CardTitle>
+            <CardDescription>Total supplies and value</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{filteredSupplies.length}</div>
-            <p className="text-sm text-muted-foreground mt-2">
-              Total amount: {filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0)}
-            </p>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Total Items:</span>
+                <span className="text-sm">{filteredSupplies.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Total Value:</span>
+                <span className="text-sm">{formatCurrency(filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0))}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
         
