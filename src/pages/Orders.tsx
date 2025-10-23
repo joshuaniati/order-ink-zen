@@ -207,21 +207,50 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     await fetchData();
   };
 
-  const now = new Date();
-  const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
-  const weekStartStr = weekStart.toISOString().split('T')[0];
+  // Get current week start (Monday)
+  const getCurrentWeekStart = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    return monday.toISOString().split('T')[0];
+  };
+
+  const currentWeekStart = getCurrentWeekStart();
   
-  // Get budgets and orders for each shop
+  // Get budgets and orders for each shop with proper budget calculation
   const shopsWithBudgets = shops.map(shop => {
-    const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === weekStartStr);
+    const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === currentWeekStart);
     const shopWeekOrders = orders.filter(o => {
       const orderDate = new Date(o.order_date);
-      return o.shop === shop && orderDate >= new Date(weekStartStr);
+      return o.shop === shop && orderDate >= new Date(currentWeekStart);
     });
+
+    // Calculate total ordered amount for the week
+    const totalOrdered = shopWeekOrders.reduce((sum, order) => sum + (order.order_amount || 0), 0);
+    
+    // Calculate total delivered amount for the week (what was actually received)
+    const totalDelivered = shopWeekOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
+    
+    // Calculate remaining amounts
+    const budgetAmount = budget?.budget_amount || 0;
+    
+    // Remaining budget if ALL orders were delivered
+    const remainingIfAllDelivered = budgetAmount - totalOrdered;
+    
+    // Remaining budget based on ACTUAL deliveries
+    const remainingBasedOnDelivered = budgetAmount - totalDelivered;
+
     return {
       shop,
       budget,
-      orders: shopWeekOrders
+      orders: shopWeekOrders,
+      totalOrdered,
+      totalDelivered,
+      remainingIfAllDelivered,
+      remainingBasedOnDelivered,
+      budgetAmount
     };
   });
 
@@ -230,10 +259,10 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const deliveredOrders = filteredOrders.filter(o => o.status === "Delivered");
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, "secondary" | "default"> = {
+    const variants: Record<string, "secondary" | "default" | "destructive"> = {
       Pending: "secondary",
       Partial: "default",
-      Delivered: "default",
+      Delivered: "destructive",
     };
     return <Badge variant={variants[status] || "default"}>{status}</Badge>;
   };
@@ -320,7 +349,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="orderAmount">Order Amount *</Label>
+                    <Label htmlFor="orderAmount">Order Amount (ZAR) *</Label>
                     <Input
                       id="orderAmount"
                       type="number"
@@ -330,7 +359,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="amountDelivered">Amount Delivered</Label>
+                    <Label htmlFor="amountDelivered">Amount Delivered (ZAR)</Label>
                     <Input
                       id="amountDelivered"
                       type="number"
@@ -391,14 +420,19 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {selectedShop === "All" ? (
-            shopsWithBudgets.map(({ shop, budget, orders: shopOrders }) => (
+            shopsWithBudgets.map(({ shop, budget, orders: shopOrders, totalOrdered, totalDelivered, remainingIfAllDelivered, remainingBasedOnDelivered, budgetAmount }) => (
               <WeeklyBudgetCard
                 key={shop}
                 shop={shop}
                 currentBudget={budget}
                 weekOrders={shopOrders}
-                weekStartStr={weekStartStr}
+                weekStartStr={currentWeekStart}
                 onBudgetUpdate={handleBudgetUpdate}
+                totalOrdered={totalOrdered}
+                totalDelivered={totalDelivered}
+                remainingIfAllDelivered={remainingIfAllDelivered}
+                remainingBasedOnDelivered={remainingBasedOnDelivered}
+                budgetAmount={budgetAmount}
               />
             ))
           ) : (
@@ -406,8 +440,13 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               shop={selectedShop}
               currentBudget={shopsWithBudgets.find(s => s.shop === selectedShop)?.budget || null}
               weekOrders={shopsWithBudgets.find(s => s.shop === selectedShop)?.orders || []}
-              weekStartStr={weekStartStr}
+              weekStartStr={currentWeekStart}
               onBudgetUpdate={handleBudgetUpdate}
+              totalOrdered={shopsWithBudgets.find(s => s.shop === selectedShop)?.totalOrdered || 0}
+              totalDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.totalDelivered || 0}
+              remainingIfAllDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingIfAllDelivered || 0}
+              remainingBasedOnDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBasedOnDelivered || 0}
+              budgetAmount={shopsWithBudgets.find(s => s.shop === selectedShop)?.budgetAmount || 0}
             />
           )}
         </div>
@@ -420,8 +459,74 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             shop={selectedShop}
             currentBudget={shopsWithBudgets.find(s => s.shop === selectedShop)?.budget || null}
             weekOrders={shopsWithBudgets.find(s => s.shop === selectedShop)?.orders || []}
-            weekStartStr={weekStartStr}
+            weekStartStr={currentWeekStart}
+            totalOrdered={shopsWithBudgets.find(s => s.shop === selectedShop)?.totalOrdered || 0}
+            totalDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.totalDelivered || 0}
+            remainingIfAllDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingIfAllDelivered || 0}
+            remainingBasedOnDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBasedOnDelivered || 0}
+            budgetAmount={shopsWithBudgets.find(s => s.shop === selectedShop)?.budgetAmount || 0}
           />
+        </div>
+      )}
+
+      {/* Budget Summary Cards */}
+      {selectedShop !== "All" && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Budget Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Weekly Budget:</span>
+                  <span className="text-sm font-medium">{formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.budgetAmount || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Orders Placed:</span>
+                  <span className="text-sm font-medium">{formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.totalOrdered || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Amount Delivered:</span>
+                  <span className="text-sm font-medium">{formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.totalDelivered || 0)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Remaining Budget</CardTitle>
+              <CardDescription>If all orders delivered</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingIfAllDelivered || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Based on {shopsWithBudgets.find(s => s.shop === selectedShop)?.orders.length || 0} orders
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Available Budget</CardTitle>
+              <CardDescription>Based on actual deliveries</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${
+                (shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBasedOnDelivered || 0) >= 0 
+                  ? 'text-green-600' 
+                  : 'text-red-600'
+              }`}>
+                {formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBasedOnDelivered || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Actual cash remaining
+              </p>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -433,6 +538,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{pendingOrders.length}</div>
+            <p className="text-sm text-muted-foreground">
+              {formatCurrency(pendingOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0))} total
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -442,6 +550,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{partialOrders.length}</div>
+            <p className="text-sm text-muted-foreground">
+              {formatCurrency(partialOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0))} ordered
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -451,6 +562,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{deliveredOrders.length}</div>
+            <p className="text-sm text-muted-foreground">
+              {formatCurrency(deliveredOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0))} total
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -470,8 +584,8 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <TableHead>Order Date</TableHead>
                 <TableHead>Ordered By</TableHead>
                 <TableHead>Contact Person</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Delivered</TableHead>
+                <TableHead>Amount (ZAR)</TableHead>
+                <TableHead>Delivered (ZAR)</TableHead>
                 <TableHead>Delivery Date</TableHead>
                 <TableHead>Shop</TableHead>
                 <TableHead>Status</TableHead>
@@ -485,8 +599,8 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   <TableCell>{order.order_date}</TableCell>
                   <TableCell>{order.ordered_by}</TableCell>
                   <TableCell>{order.contact_person}</TableCell>
-                  <TableCell>{order.order_amount}</TableCell>
-                  <TableCell>{order.amount_delivered}</TableCell>
+                  <TableCell>{formatCurrency(order.order_amount)}</TableCell>
+                  <TableCell>{formatCurrency(order.amount_delivered)}</TableCell>
                   <TableCell>{order.delivery_date}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{order.shop}</Badge>
