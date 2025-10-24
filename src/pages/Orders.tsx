@@ -327,7 +327,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     });
   };
 
-  // Print weekly delivery list for a specific shop
+  // Print weekly delivery list for a specific shop with individual signatures
   const printWeeklyDeliveryList = (shopName: string) => {
     const deliveredOrders = getWeeklyDeliveredOrders(shopName);
     
@@ -384,22 +384,34 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               font-weight: bold; 
             }
             .signature-section {
-              margin-top: 50px;
               display: flex;
               justify-content: space-between;
+              margin-top: 20px;
+              padding: 10px;
+              border: 1px solid #ddd;
             }
             .signature-line {
               border-top: 1px solid #333;
-              width: 200px;
+              width: 180px;
               margin-top: 40px;
             }
             .signature-label {
               margin-top: 5px;
-              font-size: 14px;
+              font-size: 12px;
+              text-align: center;
+            }
+            .invoice-row {
+              border-bottom: 2px solid #333;
+            }
+            .signature-container {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 10px;
             }
             @media print {
               body { margin: 0; }
               .no-print { display: none; }
+              .invoice-row { page-break-inside: avoid; }
             }
           </style>
         </head>
@@ -417,38 +429,56 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <th>Date Delivered</th>
                 <th>Amount (ZAR)</th>
                 <th>Ordered By</th>
+                <th>Signatures</th>
               </tr>
             </thead>
             <tbody>
               ${deliveredOrders.map(order => `
-                <tr>
+                <tr class="invoice-row">
                   <td>${order.supply_name || 'N/A'}</td>
                   <td>${order.delivery_date || 'N/A'}</td>
                   <td>${formatCurrency(order.amount_delivered || 0)}</td>
                   <td>${order.ordered_by || 'N/A'}</td>
+                  <td>
+                    <div class="signature-container">
+                      <div>
+                        <div class="signature-line"></div>
+                        <div class="signature-label">Handed Over By</div>
+                      </div>
+                      <div>
+                        <div class="signature-line"></div>
+                        <div class="signature-label">Received By</div>
+                      </div>
+                    </div>
+                  </td>
                 </tr>
               `).join('')}
               <tr class="total-row">
                 <td colspan="2"><strong>Total Amount</strong></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
                 <td></td>
+                <td></td>
               </tr>
             </tbody>
           </table>
           
-          <div class="signature-section">
-            <div>
-              <div class="signature-line"></div>
-              <div class="signature-label">Handed Over By (Signature)</div>
-            </div>
-            <div>
-              <div class="signature-line"></div>
-              <div class="signature-label">Received By (Signature)</div>
+          <div style="margin-top: 30px; padding: 20px; border: 1px solid #333; background-color: #f9f9f9;">
+            <div style="text-align: center; font-weight: bold; margin-bottom: 15px;">FINAL AUTHORIZATION</div>
+            <div class="signature-section">
+              <div>
+                <div class="signature-line" style="width: 250px;"></div>
+                <div class="signature-label">Manager/Authorized Signatory</div>
+              </div>
+              <div>
+                <div class="signature-line" style="width: 250px;"></div>
+                <div class="signature-label">Accounting Department</div>
+              </div>
             </div>
           </div>
           
           <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
-            This document is for accounting department payment processing
+            This document is for accounting department payment processing<br>
+            All individual invoices must be signed by both parties
           </div>
           
           <script>
@@ -466,7 +496,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     printWindow.document.close();
   };
 
-  // Print all shops weekly delivery lists
+  // Print all shops weekly delivery lists with individual signatures
   const printAllShopsWeeklyDelivery = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -497,38 +527,56 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <th>Date Delivered</th>
                 <th>Amount (ZAR)</th>
                 <th>Ordered By</th>
+                <th>Signatures</th>
               </tr>
             </thead>
             <tbody>
               ${deliveredOrders.map(order => `
-                <tr>
+                <tr class="invoice-row">
                   <td>${order.supply_name || 'N/A'}</td>
                   <td>${order.delivery_date || 'N/A'}</td>
                   <td>${formatCurrency(order.amount_delivered || 0)}</td>
                   <td>${order.ordered_by || 'N/A'}</td>
+                  <td>
+                    <div class="signature-container">
+                      <div>
+                        <div class="signature-line"></div>
+                        <div class="signature-label">Handed Over By</div>
+                      </div>
+                      <div>
+                        <div class="signature-line"></div>
+                        <div class="signature-label">Received By</div>
+                      </div>
+                    </div>
+                  </td>
                 </tr>
               `).join('')}
               <tr class="total-row">
                 <td colspan="2"><strong>Total Amount</strong></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
                 <td></td>
+                <td></td>
               </tr>
             </tbody>
           </table>
           
-          <div class="signature-section">
-            <div>
-              <div class="signature-line"></div>
-              <div class="signature-label">Handed Over By (Signature)</div>
-            </div>
-            <div>
-              <div class="signature-line"></div>
-              <div class="signature-label">Received By (Signature)</div>
+          <div style="margin-top: 30px; padding: 20px; border: 1px solid #333; background-color: #f9f9f9;">
+            <div style="text-align: center; font-weight: bold; margin-bottom: 15px;">FINAL AUTHORIZATION</div>
+            <div class="signature-section">
+              <div>
+                <div class="signature-line" style="width: 250px;"></div>
+                <div class="signature-label">Manager/Authorized Signatory</div>
+              </div>
+              <div>
+                <div class="signature-line" style="width: 250px;"></div>
+                <div class="signature-label">Accounting Department</div>
+              </div>
             </div>
           </div>
           
           <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
-            This document is for accounting department payment processing
+            This document is for accounting department payment processing<br>
+            All individual invoices must be signed by both parties
           </div>
         </div>
       `;
@@ -581,22 +629,34 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               font-weight: bold; 
             }
             .signature-section {
-              margin-top: 50px;
               display: flex;
               justify-content: space-between;
+              margin-top: 20px;
+              padding: 10px;
+              border: 1px solid #ddd;
             }
             .signature-line {
               border-top: 1px solid #333;
-              width: 200px;
+              width: 180px;
               margin-top: 40px;
             }
             .signature-label {
               margin-top: 5px;
-              font-size: 14px;
+              font-size: 12px;
+              text-align: center;
+            }
+            .invoice-row {
+              border-bottom: 2px solid #333;
+            }
+            .signature-container {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 10px;
             }
             @media print {
               body { margin: 0; }
               .no-print { display: none; }
+              .invoice-row { page-break-inside: avoid; }
             }
           </style>
         </head>
