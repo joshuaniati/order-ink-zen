@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Filter, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -25,6 +25,9 @@ type Order = Tables<'orders'>;
 type Supply = Tables<'supplies'>;
 type WeeklyBudget = Tables<'weekly_budgets'>;
 
+type SortField = 'supply_name' | 'order_date' | 'delivery_date' | 'order_amount' | 'amount_delivered';
+type SortDirection = 'asc' | 'desc';
+
 const Orders = ({ selectedShop }: OrdersProps) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
@@ -33,6 +36,14 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // New state for sorting, filtering and querying
+  const [sortField, setSortField] = useState<SortField>('order_date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [showCurrentWeekOnly, setShowCurrentWeekOnly] = useState(false);
   
   const today = new Date().toISOString().split('T')[0];
   
@@ -85,9 +96,104 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     fetchData();
   }, []);
 
-  const filteredOrders = selectedShop === "All" 
-    ? orders 
-    : orders.filter(o => o.shop === selectedShop);
+  // Get current week start (Monday)
+  const getCurrentWeekStart = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    return monday.toISOString().split('T')[0];
+  };
+
+  // Get current week end (Sunday)
+  const getCurrentWeekEnd = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? 0 : 7);
+    const sunday = new Date(now.setDate(diff));
+    sunday.setHours(23, 59, 59, 999);
+    return sunday.toISOString().split('T')[0];
+  };
+
+  const currentWeekStart = getCurrentWeekStart();
+  const currentWeekEnd = getCurrentWeekEnd();
+
+  // Filter and sort orders
+  const filteredOrders = orders.filter(order => {
+    // Shop filter
+    if (selectedShop !== "All" && order.shop !== selectedShop) {
+      return false;
+    }
+
+    // Search query filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesName = order.supply_name?.toLowerCase().includes(query);
+      const matchesOrderedBy = order.ordered_by?.toLowerCase().includes(query);
+      const matchesContact = order.contact_person?.toLowerCase().includes(query);
+      
+      if (!matchesName && !matchesOrderedBy && !matchesContact) {
+        return false;
+      }
+    }
+
+    // Date range filter
+    if (dateFrom && order.order_date < dateFrom) {
+      return false;
+    }
+    if (dateTo && order.order_date > dateTo) {
+      return false;
+    }
+
+    // Current week filter
+    if (showCurrentWeekOnly) {
+      const orderDate = new Date(order.order_date);
+      const weekStart = new Date(currentWeekStart);
+      const weekEnd = new Date(currentWeekEnd);
+      
+      if (orderDate < weekStart || orderDate > weekEnd) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Sort orders
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    let aValue: any = a[sortField];
+    let bValue: any = b[sortField];
+
+    // Handle string comparison
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      aValue = aValue.toLowerCase();
+      bValue = bValue.toLowerCase();
+    }
+
+    // Handle date comparison
+    if (sortField.includes('date')) {
+      aValue = new Date(aValue).getTime();
+      bValue = new Date(bValue).getTime();
+    }
+
+    if (aValue < bValue) {
+      return sortDirection === 'asc' ? -1 : 1;
+    }
+    if (aValue > bValue) {
+      return sortDirection === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,18 +313,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     await fetchData();
   };
 
-  // Get current week start (Monday)
-  const getCurrentWeekStart = () => {
-    const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(now.setDate(diff));
-    monday.setHours(0, 0, 0, 0);
-    return monday.toISOString().split('T')[0];
-  };
-
-  const currentWeekStart = getCurrentWeekStart();
-  
   // Get budgets and orders for each shop with proper budget calculation
   const shopsWithBudgets = shops.map(shop => {
     const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === currentWeekStart);
@@ -254,9 +348,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     };
   });
 
-  const pendingOrders = filteredOrders.filter(o => o.status === "Pending");
-  const partialOrders = filteredOrders.filter(o => o.status === "Partial");
-  const deliveredOrders = filteredOrders.filter(o => o.status === "Delivered");
+  const pendingOrders = sortedOrders.filter(o => o.status === "Pending");
+  const partialOrders = sortedOrders.filter(o => o.status === "Partial");
+  const deliveredOrders = sortedOrders.filter(o => o.status === "Delivered");
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "secondary" | "default" | "destructive"> = {
@@ -266,6 +360,23 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     };
     return <Badge variant={variants[status] || "default"}>{status}</Badge>;
   };
+
+  const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
+    <TableHead 
+      className="cursor-pointer hover:bg-muted/50"
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center">
+        {children}
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+        {sortField === field && (
+          <span className="ml-1 text-xs">
+            {sortDirection === 'asc' ? '↑' : '↓'}
+          </span>
+        )}
+      </div>
+    </TableHead>
+  );
 
   if (loading) {
     return (
@@ -412,6 +523,113 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           </Dialog>
         </div>
       </div>
+
+      {/* Search and Filter Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Search & Filter</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="search">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  placeholder="Search by name, email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="dateFrom">Date From</Label>
+              <Input
+                id="dateFrom"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="dateTo">Date To</Label>
+              <Input
+                id="dateTo"
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="weekFilter">Week Filter</Label>
+              <Select value={showCurrentWeekOnly ? "current" : "all"} onValueChange={(value) => setShowCurrentWeekOnly(value === "current")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select time period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Dates</SelectItem>
+                  <SelectItem value="current">Current Week Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          {/* Active filters display */}
+          {(searchQuery || dateFrom || dateTo || showCurrentWeekOnly) && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {searchQuery && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  Search: "{searchQuery}"
+                  <button onClick={() => setSearchQuery('')} className="ml-1 hover:text-destructive">
+                    ×
+                  </button>
+                </Badge>
+              )}
+              {dateFrom && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  From: {dateFrom}
+                  <button onClick={() => setDateFrom('')} className="ml-1 hover:text-destructive">
+                    ×
+                  </button>
+                </Badge>
+              )}
+              {dateTo && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  To: {dateTo}
+                  <button onClick={() => setDateTo('')} className="ml-1 hover:text-destructive">
+                    ×
+                  </button>
+                </Badge>
+              )}
+              {showCurrentWeekOnly && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  Current Week Only
+                  <button onClick={() => setShowCurrentWeekOnly(false)} className="ml-1 hover:text-destructive">
+                    ×
+                  </button>
+                </Badge>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery('');
+                  setDateFrom('');
+                  setDateTo('');
+                  setShowCurrentWeekOnly(false);
+                }}
+              >
+                Clear All
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Weekly Budgets Section */}
       <div>
@@ -574,26 +792,27 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <CardTitle>Order List</CardTitle>
           <CardDescription>
             {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders
+            {sortedOrders.length !== filteredOrders.length && ` (${sortedOrders.length} of ${filteredOrders.length} shown)`}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Supply</TableHead>
-                <TableHead>Order Date</TableHead>
+                <SortableHeader field="supply_name">Supply</SortableHeader>
+                <SortableHeader field="order_date">Order Date</SortableHeader>
                 <TableHead>Ordered By</TableHead>
                 <TableHead>Contact Person</TableHead>
-                <TableHead>Amount (ZAR)</TableHead>
-                <TableHead>Delivered (ZAR)</TableHead>
-                <TableHead>Delivery Date</TableHead>
+                <SortableHeader field="order_amount">Amount (ZAR)</SortableHeader>
+                <SortableHeader field="amount_delivered">Delivered (ZAR)</SortableHeader>
+                <SortableHeader field="delivery_date">Delivery Date</SortableHeader>
                 <TableHead>Shop</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrders.map((order) => (
+              {sortedOrders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">{order.supply_name}</TableCell>
                   <TableCell>{order.order_date}</TableCell>
@@ -628,9 +847,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               ))}
             </TableBody>
           </Table>
-          {filteredOrders.length === 0 && (
+          {sortedOrders.length === 0 && (
             <div className="py-12 text-center text-muted-foreground">
-              No orders found. Create your first order to get started.
+              {searchQuery || dateFrom || dateTo || showCurrentWeekOnly 
+                ? "No orders match your search criteria. Try adjusting your filters."
+                : "No orders found. Create your first order to get started."}
             </div>
           )}
         </CardContent>
