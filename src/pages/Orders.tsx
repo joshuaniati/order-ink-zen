@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2, Search, Filter, ArrowUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Filter, ArrowUpDown, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -313,6 +313,311 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     await fetchData();
   };
 
+  // Get delivered orders for the current week for each shop
+  const getWeeklyDeliveredOrders = (shopName: string) => {
+    return orders.filter(order => {
+      const orderDate = new Date(order.order_date);
+      const weekStart = new Date(currentWeekStart);
+      const weekEnd = new Date(currentWeekEnd);
+      
+      return order.shop === shopName && 
+             order.status === "Delivered" &&
+             orderDate >= weekStart && 
+             orderDate <= weekEnd;
+    });
+  };
+
+  // Print weekly delivery list for a specific shop
+  const printWeeklyDeliveryList = (shopName: string) => {
+    const deliveredOrders = getWeeklyDeliveredOrders(shopName);
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error("Please allow pop-ups to print the delivery list");
+      return;
+    }
+
+    const totalAmount = deliveredOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Weekly Delivery List - ${shopName}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px;
+              color: #333;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px;
+              border-bottom: 2px solid #333;
+              padding-bottom: 20px;
+            }
+            .shop-name { 
+              font-size: 24px; 
+              font-weight: bold;
+              margin-bottom: 10px;
+            }
+            .period { 
+              font-size: 16px;
+              color: #666;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-bottom: 30px;
+            }
+            th, td { 
+              border: 1px solid #ddd; 
+              padding: 12px; 
+              text-align: left; 
+            }
+            th { 
+              background-color: #f5f5f5; 
+              font-weight: bold;
+            }
+            .total-row { 
+              background-color: #f0f0f0; 
+              font-weight: bold; 
+            }
+            .signature-section {
+              margin-top: 50px;
+              display: flex;
+              justify-content: space-between;
+            }
+            .signature-line {
+              border-top: 1px solid #333;
+              width: 200px;
+              margin-top: 40px;
+            }
+            .signature-label {
+              margin-top: 5px;
+              font-size: 14px;
+            }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="shop-name">${shopName} - Weekly Delivery List</div>
+            <div class="period">Period: ${currentWeekStart} to ${currentWeekEnd}</div>
+            <div class="period">Generated on: ${new Date().toLocaleDateString()}</div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Supply Name</th>
+                <th>Date Delivered</th>
+                <th>Amount (ZAR)</th>
+                <th>Ordered By</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${deliveredOrders.map(order => `
+                <tr>
+                  <td>${order.supply_name || 'N/A'}</td>
+                  <td>${order.delivery_date || 'N/A'}</td>
+                  <td>${formatCurrency(order.amount_delivered || 0)}</td>
+                  <td>${order.ordered_by || 'N/A'}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="2"><strong>Total Amount</strong></td>
+                <td><strong>${formatCurrency(totalAmount)}</strong></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="signature-section">
+            <div>
+              <div class="signature-line"></div>
+              <div class="signature-label">Handed Over By (Signature)</div>
+            </div>
+            <div>
+              <div class="signature-line"></div>
+              <div class="signature-label">Received By (Signature)</div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
+            This document is for accounting department payment processing
+          </div>
+          
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => {
+                window.close();
+              }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+  };
+
+  // Print all shops weekly delivery lists
+  const printAllShopsWeeklyDelivery = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error("Please allow pop-ups to print the delivery lists");
+      return;
+    }
+
+    let allContent = '';
+    
+    shops.forEach(shopName => {
+      const deliveredOrders = getWeeklyDeliveredOrders(shopName);
+      if (deliveredOrders.length === 0) return;
+      
+      const totalAmount = deliveredOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
+
+      const shopContent = `
+        <div style="page-break-after: always;">
+          <div class="header">
+            <div class="shop-name">${shopName} - Weekly Delivery List</div>
+            <div class="period">Period: ${currentWeekStart} to ${currentWeekEnd}</div>
+            <div class="period">Generated on: ${new Date().toLocaleDateString()}</div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Supply Name</th>
+                <th>Date Delivered</th>
+                <th>Amount (ZAR)</th>
+                <th>Ordered By</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${deliveredOrders.map(order => `
+                <tr>
+                  <td>${order.supply_name || 'N/A'}</td>
+                  <td>${order.delivery_date || 'N/A'}</td>
+                  <td>${formatCurrency(order.amount_delivered || 0)}</td>
+                  <td>${order.ordered_by || 'N/A'}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="2"><strong>Total Amount</strong></td>
+                <td><strong>${formatCurrency(totalAmount)}</strong></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="signature-section">
+            <div>
+              <div class="signature-line"></div>
+              <div class="signature-label">Handed Over By (Signature)</div>
+            </div>
+            <div>
+              <div class="signature-line"></div>
+              <div class="signature-label">Received By (Signature)</div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
+            This document is for accounting department payment processing
+          </div>
+        </div>
+      `;
+      
+      allContent += shopContent;
+    });
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>All Shops Weekly Delivery Lists</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px;
+              color: #333;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px;
+              border-bottom: 2px solid #333;
+              padding-bottom: 20px;
+            }
+            .shop-name { 
+              font-size: 24px; 
+              font-weight: bold;
+              margin-bottom: 10px;
+            }
+            .period { 
+              font-size: 16px;
+              color: #666;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-bottom: 30px;
+            }
+            th, td { 
+              border: 1px solid #ddd; 
+              padding: 12px; 
+              text-align: left; 
+            }
+            th { 
+              background-color: #f5f5f5; 
+              font-weight: bold;
+            }
+            .total-row { 
+              background-color: #f0f0f0; 
+              font-weight: bold; 
+            }
+            .signature-section {
+              margin-top: 50px;
+              display: flex;
+              justify-content: space-between;
+            }
+            .signature-line {
+              border-top: 1px solid #333;
+              width: 200px;
+              margin-top: 40px;
+            }
+            .signature-label {
+              margin-top: 5px;
+              font-size: 14px;
+            }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          ${allContent || '<div class="header"><div class="shop-name">No delivered orders found for this week</div></div>'}
+          
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => {
+                window.close();
+              }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+  };
+
   // Get budgets and orders for each shop with proper budget calculation
   const shopsWithBudgets = shops.map(shop => {
     const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === currentWeekStart);
@@ -394,6 +699,27 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <p className="text-muted-foreground">Manage purchase orders and deliveries</p>
         </div>
         <div className="flex gap-2">
+          {/* Print Weekly Delivery List Button */}
+          {selectedShop === "All" ? (
+            <Button 
+              variant="outline" 
+              onClick={printAllShopsWeeklyDelivery}
+              disabled={shops.every(shop => getWeeklyDeliveredOrders(shop).length === 0)}
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              Print All Weekly Delivery Lists
+            </Button>
+          ) : (
+            <Button 
+              variant="outline" 
+              onClick={() => printWeeklyDeliveryList(selectedShop)}
+              disabled={getWeeklyDeliveredOrders(selectedShop).length === 0}
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              Print Weekly Delivery List
+            </Button>
+          )}
+          
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) resetForm();
