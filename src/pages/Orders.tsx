@@ -337,32 +337,34 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <style>
             body { 
               font-family: Arial, sans-serif; 
-              margin: 20px;
+              margin: 10px;
               color: #333;
+              font-size: 12px;
             }
             .header { 
               text-align: center; 
-              margin-bottom: 30px;
+              margin-bottom: 15px;
               border-bottom: 2px solid #333;
-              padding-bottom: 20px;
+              padding-bottom: 10px;
             }
             .shop-name { 
-              font-size: 24px; 
+              font-size: 18px; 
               font-weight: bold;
-              margin-bottom: 10px;
+              margin-bottom: 5px;
             }
             .period { 
-              font-size: 16px;
+              font-size: 12px;
               color: #666;
             }
             table { 
               width: 100%; 
               border-collapse: collapse; 
-              margin-bottom: 30px;
+              margin-bottom: 15px;
+              font-size: 11px;
             }
             th, td { 
               border: 1px solid #ddd; 
-              padding: 12px; 
+              padding: 6px; 
               text-align: left; 
             }
             th { 
@@ -376,38 +378,44 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             .signature-section {
               display: flex;
               justify-content: space-between;
-              margin-top: 20px;
-              padding: 10px;
+              margin-top: 15px;
+              padding: 8px;
               border: 1px solid #ddd;
+              font-size: 11px;
             }
             .signature-line {
               border-top: 1px solid #333;
-              width: 180px;
-              margin-top: 40px;
+              width: 150px;
+              margin-top: 25px;
             }
             .signature-label {
-              margin-top: 5px;
-              font-size: 12px;
+              margin-top: 3px;
+              font-size: 10px;
               text-align: center;
             }
-            .invoice-row {
-              border-bottom: 2px solid #333;
+            .invoice-number {
+              height: 15px;
+              border-bottom: 1px solid #333;
+              min-width: 80px;
+              display: inline-block;
             }
             .signature-container {
               display: flex;
               justify-content: space-between;
-              margin-top: 10px;
+              margin-top: 5px;
             }
-            .invoice-number {
-              height: 20px;
-              border-bottom: 1px solid #333;
-              min-width: 100px;
-              display: inline-block;
+            .footer {
+              margin-top: 15px;
+              font-size: 10px;
+              color: #666;
+              text-align: center;
             }
             @media print {
               body { margin: 0; }
               .no-print { display: none; }
-              .invoice-row { page-break-inside: avoid; }
+            }
+            @page {
+              margin: 0.5cm;
             }
           </style>
         </head>
@@ -430,7 +438,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             </thead>
             <tbody>
               ${deliveredOrders.map(order => `
-                <tr class="invoice-row">
+                <tr>
                   <td>${order.supply_name || 'N/A'}</td>
                   <td>${order.delivery_date || 'N/A'}</td>
                   <td>${formatCurrency(order.amount_delivered || 0)}</td>
@@ -452,30 +460,28 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 </tr>
               `).join('')}
               <tr class="total-row">
-                <td><strong>Total Amount</strong></td>
-                <td></td>
+                <td colspan="2"><strong>Total Amount</strong></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
-                <td></td>
-                <td></td>
+                <td colspan="2"></td>
               </tr>
             </tbody>
           </table>
           
-          <div style="margin-top: 30px; padding: 20px; border: 1px solid #333; background-color: #f9f9f9;">
-            <div style="text-align: center; font-weight: bold; margin-bottom: 15px;">FINAL AUTHORIZATION</div>
-            <div class="signature-section">
+          <div class="signature-section">
+            <div style="text-align: center; font-weight: bold; margin-bottom: 8px; width: 100%;">FINAL AUTHORIZATION</div>
+            <div style="display: flex; justify-content: space-between; width: 100%;">
               <div>
-                <div class="signature-line" style="width: 250px;"></div>
+                <div class="signature-line" style="width: 200px;"></div>
                 <div class="signature-label">Manager/Authorized Signatory</div>
               </div>
               <div>
-                <div class="signature-line" style="width: 250px;"></div>
+                <div class="signature-line" style="width: 200px;"></div>
                 <div class="signature-label">Accounting Department</div>
               </div>
             </div>
           </div>
           
-          <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
+          <div class="footer">
             This document is for accounting department payment processing<br>
             All individual invoices must be signed by both parties<br>
             Invoice numbers to be filled manually during payment processing
@@ -531,7 +537,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             </thead>
             <tbody>
               ${deliveredOrders.map(order => `
-                <tr class="invoice-row">
+                <tr>
                   <td>${order.supply_name || 'N/A'}</td>
                   <td>${order.delivery_date || 'N/A'}</td>
                   <td>${formatCurrency(order.amount_delivered || 0)}</td>
@@ -553,30 +559,28 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 </tr>
               `).join('')}
               <tr class="total-row">
-                <td><strong>Total Amount</strong></td>
-                <td></td>
+                <td colspan="2"><strong>Total Amount</strong></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
-                <td></td>
-                <td></td>
+                <td colspan="2"></td>
               </tr>
             </tbody>
           </table>
           
-          <div style="margin-top: 30px; padding: 20px; border: 1px solid #333; background-color: #f9f9f9;">
-            <div style="text-align: center; font-weight: bold; margin-bottom: 15px;">FINAL AUTHORIZATION</div>
-            <div class="signature-section">
+          <div class="signature-section">
+            <div style="text-align: center; font-weight: bold; margin-bottom: 8px; width: 100%;">FINAL AUTHORIZATION</div>
+            <div style="display: flex; justify-content: space-between; width: 100%;">
               <div>
-                <div class="signature-line" style="width: 250px;"></div>
+                <div class="signature-line" style="width: 200px;"></div>
                 <div class="signature-label">Manager/Authorized Signatory</div>
               </div>
               <div>
-                <div class="signature-line" style="width: 250px;"></div>
+                <div class="signature-line" style="width: 200px;"></div>
                 <div class="signature-label">Accounting Department</div>
               </div>
             </div>
           </div>
           
-          <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
+          <div class="footer">
             This document is for accounting department payment processing<br>
             All individual invoices must be signed by both parties<br>
             Invoice numbers to be filled manually during payment processing
@@ -595,32 +599,34 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <style>
             body { 
               font-family: Arial, sans-serif; 
-              margin: 20px;
+              margin: 10px;
               color: #333;
+              font-size: 12px;
             }
             .header { 
               text-align: center; 
-              margin-bottom: 30px;
+              margin-bottom: 15px;
               border-bottom: 2px solid #333;
-              padding-bottom: 20px;
+              padding-bottom: 10px;
             }
             .shop-name { 
-              font-size: 24px; 
+              font-size: 18px; 
               font-weight: bold;
-              margin-bottom: 10px;
+              margin-bottom: 5px;
             }
             .period { 
-              font-size: 16px;
+              font-size: 12px;
               color: #666;
             }
             table { 
               width: 100%; 
               border-collapse: collapse; 
-              margin-bottom: 30px;
+              margin-bottom: 15px;
+              font-size: 11px;
             }
             th, td { 
               border: 1px solid #ddd; 
-              padding: 12px; 
+              padding: 6px; 
               text-align: left; 
             }
             th { 
@@ -634,38 +640,44 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             .signature-section {
               display: flex;
               justify-content: space-between;
-              margin-top: 20px;
-              padding: 10px;
+              margin-top: 15px;
+              padding: 8px;
               border: 1px solid #ddd;
+              font-size: 11px;
             }
             .signature-line {
               border-top: 1px solid #333;
-              width: 180px;
-              margin-top: 40px;
+              width: 150px;
+              margin-top: 25px;
             }
             .signature-label {
-              margin-top: 5px;
-              font-size: 12px;
+              margin-top: 3px;
+              font-size: 10px;
               text-align: center;
             }
-            .invoice-row {
-              border-bottom: 2px solid #333;
+            .invoice-number {
+              height: 15px;
+              border-bottom: 1px solid #333;
+              min-width: 80px;
+              display: inline-block;
             }
             .signature-container {
               display: flex;
               justify-content: space-between;
-              margin-top: 10px;
+              margin-top: 5px;
             }
-            .invoice-number {
-              height: 20px;
-              border-bottom: 1px solid #333;
-              min-width: 100px;
-              display: inline-block;
+            .footer {
+              margin-top: 15px;
+              font-size: 10px;
+              color: #666;
+              text-align: center;
             }
             @media print {
               body { margin: 0; }
               .no-print { display: none; }
-              .invoice-row { page-break-inside: avoid; }
+            }
+            @page {
+              margin: 0.5cm;
             }
           </style>
         </head>
@@ -966,7 +978,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             <div className="mt-4 flex flex-wrap gap-2">
               {searchQuery && (
                 <Badge variant="secondary" className="flex items-center gap-1">
-                  Search: "{searchQuery}"
+                  Search: "${searchQuery}"
                   <button onClick={() => setSearchQuery('')} className="ml-1 hover:text-destructive">
                     ×
                   </button>
