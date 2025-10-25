@@ -192,29 +192,150 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     (sum, o) => sum + (Number(o.order_amount) || 0), 0
   );
 
-  // Navigation handlers
+  // Navigation handlers with state
   const handleNavigateToBudget = () => {
-    navigate('/orders');
+    navigate('/orders', { 
+      state: { 
+        filter: 'budget',
+        selectedShop,
+        currentWeekStart
+      }
+    });
   };
 
-  const handleNavigateToOrders = () => {
-    navigate('/orders');
+  const handleNavigateToOrdersPlaced = () => {
+    navigate('/orders', { 
+      state: { 
+        filter: 'current-week-orders',
+        selectedShop,
+        currentWeekStart
+      }
+    });
   };
 
-  const handleNavigateToSupplies = () => {
-    navigate('/supplies');
+  const handleNavigateToBudgetSavings = () => {
+    navigate('/orders', { 
+      state: { 
+        filter: 'budget-savings',
+        selectedShop,
+        currentWeekStart
+      }
+    });
   };
 
-  const handleNavigateToIncome = () => {
-    navigate('/income');
+  const handleNavigateToAvailableBudget = () => {
+    navigate('/orders', { 
+      state: { 
+        filter: 'available-budget',
+        selectedShop,
+        currentWeekStart
+      }
+    });
+  };
+
+  const handleNavigateToDeliveredThisWeek = () => {
+    navigate('/orders', { 
+      state: { 
+        filter: 'delivered-this-week',
+        selectedShop,
+        currentWeekStart
+      }
+    });
+  };
+
+  const handleNavigateToRemainingOrders = () => {
+    navigate('/orders', { 
+      state: { 
+        filter: 'remaining-orders',
+        selectedShop,
+        currentWeekStart
+      }
+    });
+  };
+
+  const handleNavigateToPreviousWeekDelivered = () => {
+    navigate('/orders', { 
+      state: { 
+        filter: 'previous-week-delivered',
+        selectedShop,
+        currentWeekStart,
+        previousWeekRange
+      }
+    });
+  };
+
+  const handleNavigateToTotalDelivered = () => {
+    navigate('/orders', { 
+      state: { 
+        filter: 'total-delivered',
+        selectedShop,
+        currentWeekStart,
+        previousWeekRange
+      }
+    });
+  };
+
+  const handleNavigateToStillAwaiting = () => {
+    navigate('/orders', { 
+      state: { 
+        filter: 'still-awaiting',
+        selectedShop
+      }
+    });
+  };
+
+  const handleNavigateToTotalSupplies = () => {
+    navigate('/supplies', { 
+      state: { 
+        filter: 'all',
+        selectedShop
+      }
+    });
   };
 
   const handleNavigateToPendingOrders = () => {
-    navigate('/orders');
+    navigate('/orders', { 
+      state: { 
+        filter: 'pending',
+        selectedShop
+      }
+    });
   };
 
-  const handleNavigateToInventory = () => {
-    navigate('/supplies');
+  const handleNavigateToIncome = () => {
+    navigate('/income', { 
+      state: { 
+        filter: 'today',
+        selectedShop
+      }
+    });
+  };
+
+  const handleNavigateToInventoryValue = () => {
+    navigate('/supplies', { 
+      state: { 
+        filter: 'inventory-value',
+        selectedShop
+      }
+    });
+  };
+
+  const handleNavigateToInventorySummary = () => {
+    navigate('/supplies', { 
+      state: { 
+        filter: 'summary',
+        selectedShop
+      }
+    });
+  };
+
+  const handleNavigateToRecentSupplies = () => {
+    navigate('/supplies', { 
+      state: { 
+        filter: 'recent',
+        selectedShop
+      }
+    });
   };
 
   if (loading) {
@@ -245,7 +366,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
             variant="default"
           />
         </div>
-        <div onClick={handleNavigateToOrders} className="cursor-pointer">
+        <div onClick={handleNavigateToOrdersPlaced} className="cursor-pointer">
           <MetricCard
             title="Orders Placed"
             value={formatCurrency(totalOrderAmount)}
@@ -254,7 +375,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
             variant="default"
           />
         </div>
-        <div onClick={handleNavigateToOrders} className="cursor-pointer">
+        <div onClick={handleNavigateToBudgetSavings} className="cursor-pointer">
           <MetricCard
             title="Budget Savings"
             value={formatCurrency(budgetSavings)}
@@ -263,7 +384,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
             variant="success"
           />
         </div>
-        <div onClick={handleNavigateToBudget} className="cursor-pointer">
+        <div onClick={handleNavigateToAvailableBudget} className="cursor-pointer">
           <MetricCard
             title="Available Budget"
             value={formatCurrency(availableBudget)}
@@ -287,7 +408,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div onClick={handleNavigateToOrders} className="cursor-pointer">
+            <div onClick={handleNavigateToOrdersPlaced} className="cursor-pointer">
               <MetricCard
                 title="Orders Placed This Week"
                 value={formatCurrency(totalOrderAmount)}
@@ -296,7 +417,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
                 variant="default"
               />
             </div>
-            <div onClick={handleNavigateToOrders} className="cursor-pointer">
+            <div onClick={handleNavigateToDeliveredThisWeek} className="cursor-pointer">
               <MetricCard
                 title="Delivered This Week"
                 value={formatCurrency(currentWeekDeliveredAmount)}
@@ -305,7 +426,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
                 variant="success"
               />
             </div>
-            <div onClick={handleNavigateToOrders} className="cursor-pointer">
+            <div onClick={handleNavigateToRemainingOrders} className="cursor-pointer">
               <MetricCard
                 title="Remaining (Not Delivered)"
                 value={formatCurrency(currentWeekPendingAmount)}
@@ -314,7 +435,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
                 variant="warning"
               />
             </div>
-            <div onClick={handleNavigateToOrders} className="cursor-pointer">
+            <div onClick={handleNavigateToPreviousWeekDelivered} className="cursor-pointer">
               <MetricCard
                 title="Prev Week → This Week"
                 value={formatCurrency(previousWeekOrdersDeliveredAmount)}
@@ -340,7 +461,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
-            <div onClick={handleNavigateToOrders} className="cursor-pointer">
+            <div onClick={handleNavigateToTotalDelivered} className="cursor-pointer">
               <MetricCard
                 title="Total Delivered (All)"
                 value={formatCurrency(totalDeliveredAll)}
@@ -349,7 +470,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
                 variant="success"
               />
             </div>
-            <div onClick={handleNavigateToPendingOrders} className="cursor-pointer">
+            <div onClick={handleNavigateToStillAwaiting} className="cursor-pointer">
               <MetricCard
                 title="Still Awaiting Delivery"
                 value={formatCurrency(stillAwaitingDeliveryAmount)}
@@ -358,7 +479,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
                 variant="warning"
               />
             </div>
-            <div onClick={handleNavigateToOrders} className="cursor-pointer">
+            <div onClick={handleNavigateToOrdersPlaced} className="cursor-pointer">
               <MetricCard
                 title="Grand Total Ordered"
                 value={formatCurrency(totalOrderAmount)}
@@ -373,7 +494,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
 
       {/* Additional Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div onClick={handleNavigateToSupplies} className="cursor-pointer">
+        <div onClick={handleNavigateToTotalSupplies} className="cursor-pointer">
           <MetricCard
             title="Total Supplies"
             value={filteredSupplies.length.toString()}
@@ -400,7 +521,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
             variant={todayIncome >= 0 ? "success" : "destructive"}
           />
         </div>
-        <div onClick={handleNavigateToInventory} className="cursor-pointer">
+        <div onClick={handleNavigateToInventoryValue} className="cursor-pointer">
           <MetricCard
             title="Inventory Value"
             value={formatCurrency(filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0))}
@@ -413,7 +534,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
 
       {/* Supplies Summary */}
       <div className="grid gap-4 md:grid-cols-2">
-        <div onClick={handleNavigateToSupplies} className="cursor-pointer">
+        <div onClick={handleNavigateToInventorySummary} className="cursor-pointer">
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader>
               <CardTitle>Inventory Summary</CardTitle>
@@ -434,7 +555,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
           </Card>
         </div>
         
-        <div onClick={handleNavigateToSupplies} className="cursor-pointer">
+        <div onClick={handleNavigateToRecentSupplies} className="cursor-pointer">
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader>
               <CardTitle>Recent Supplies</CardTitle>
