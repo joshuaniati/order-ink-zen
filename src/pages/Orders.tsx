@@ -37,7 +37,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // New state for sorting, filtering and querying
   const [sortField, setSortField] = useState<SortField>('order_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,7 +95,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     fetchData();
   }, []);
 
-  // Get current week start (Monday)
   const getCurrentWeekStart = () => {
     const now = new Date();
     const day = now.getDay();
@@ -106,7 +104,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     return monday.toISOString().split('T')[0];
   };
 
-  // Get current week end (Sunday)
   const getCurrentWeekEnd = () => {
     const now = new Date();
     const day = now.getDay();
@@ -119,14 +116,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const currentWeekStart = getCurrentWeekStart();
   const currentWeekEnd = getCurrentWeekEnd();
 
-  // Filter and sort orders
   const filteredOrders = orders.filter(order => {
-    // Shop filter
     if (selectedShop !== "All" && order.shop !== selectedShop) {
       return false;
     }
 
-    // Search query filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const matchesName = order.supply_name?.toLowerCase().includes(query);
@@ -138,7 +132,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       }
     }
 
-    // Date range filter
     if (dateFrom && order.order_date < dateFrom) {
       return false;
     }
@@ -146,7 +139,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       return false;
     }
 
-    // Current week filter
     if (showCurrentWeekOnly) {
       const orderDate = new Date(order.order_date);
       const weekStart = new Date(currentWeekStart);
@@ -160,18 +152,15 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     return true;
   });
 
-  // Sort orders
   const sortedOrders = [...filteredOrders].sort((a, b) => {
     let aValue: any = a[sortField];
     let bValue: any = b[sortField];
 
-    // Handle string comparison
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       aValue = aValue.toLowerCase();
       bValue = bValue.toLowerCase();
     }
 
-    // Handle date comparison
     if (sortField.includes('date')) {
       aValue = new Date(aValue).getTime();
       bValue = new Date(bValue).getTime();
@@ -313,7 +302,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     await fetchData();
   };
 
-  // Get delivered orders for the current week for each shop
   const getWeeklyDeliveredOrders = (shopName: string) => {
     return orders.filter(order => {
       const orderDate = new Date(order.order_date);
@@ -327,7 +315,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     });
   };
 
-  // Print weekly delivery list for a specific shop with individual signatures
   const printWeeklyDeliveryList = (shopName: string) => {
     const deliveredOrders = getWeeklyDeliveredOrders(shopName);
     
@@ -383,23 +370,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               background-color: #f0f0f0; 
               font-weight: bold; 
             }
-            .signature-section {
-              display: flex;
-              justify-content: space-between;
-              margin-top: 20px;
-              padding: 10px;
-              border: 1px solid #ddd;
-            }
-            .signature-line {
-              border-top: 1px solid #333;
-              width: 180px;
-              margin-top: 40px;
-            }
-            .signature-label {
-              margin-top: 5px;
-              font-size: 12px;
-              text-align: center;
-            }
             .invoice-row {
               border-bottom: 2px solid #333;
             }
@@ -407,6 +377,39 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               display: flex;
               justify-content: space-between;
               margin-top: 10px;
+            }
+            .signature-line {
+              border-top: 1px solid #333;
+              width: 150px;
+              margin-top: 30px;
+            }
+            .signature-label {
+              margin-top: 5px;
+              font-size: 11px;
+              text-align: center;
+              color: #666;
+            }
+            .invoice-number {
+              width: 120px;
+              height: 30px;
+              border: 1px dashed #999;
+              background-color: #f9f9f9;
+            }
+            .final-authorization {
+              margin-top: 40px;
+              padding: 20px;
+              border: 2px solid #333;
+              background-color: #f9f9f9;
+            }
+            .authorization-signatures {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 20px;
+            }
+            .authorization-line {
+              border-top: 1px solid #333;
+              width: 250px;
+              margin-top: 40px;
             }
             @media print {
               body { margin: 0; }
@@ -428,17 +431,20 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <th>Supply Name</th>
                 <th>Date Delivered</th>
                 <th>Amount (ZAR)</th>
-                <th>Ordered By</th>
+                <th>Invoice Number</th>
                 <th>Signatures</th>
               </tr>
             </thead>
             <tbody>
               ${deliveredOrders.map(order => `
                 <tr class="invoice-row">
-                  <td>${order.supply_name || 'N/A'}</td>
+                  <td><strong>${order.supply_name || 'N/A'}</strong></td>
                   <td>${order.delivery_date || 'N/A'}</td>
-                  <td>${formatCurrency(order.amount_delivered || 0)}</td>
-                  <td>${order.ordered_by || 'N/A'}</td>
+                  <td><strong>${formatCurrency(order.amount_delivered || 0)}</strong></td>
+                  <td>
+                    <div class="invoice-number"></div>
+                    <div style="font-size: 10px; color: #666; text-align: center; margin-top: 2px;">Write Invoice No.</div>
+                  </td>
                   <td>
                     <div class="signature-container">
                       <div>
@@ -462,23 +468,25 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             </tbody>
           </table>
           
-          <div style="margin-top: 30px; padding: 20px; border: 1px solid #333; background-color: #f9f9f9;">
-            <div style="text-align: center; font-weight: bold; margin-bottom: 15px;">FINAL AUTHORIZATION</div>
-            <div class="signature-section">
+          <div class="final-authorization">
+            <div style="text-align: center; font-weight: bold; margin-bottom: 15px; font-size: 16px;">FINAL AUTHORIZATION FOR PAYMENT</div>
+            <div class="authorization-signatures">
               <div>
-                <div class="signature-line" style="width: 250px;"></div>
+                <div class="authorization-line"></div>
                 <div class="signature-label">Manager/Authorized Signatory</div>
+                <div style="font-size: 10px; color: #666; text-align: center; margin-top: 5px;">Name & Date</div>
               </div>
               <div>
-                <div class="signature-line" style="width: 250px;"></div>
+                <div class="authorization-line"></div>
                 <div class="signature-label">Accounting Department</div>
+                <div style="font-size: 10px; color: #666; text-align: center; margin-top: 5px;">Name & Date</div>
               </div>
             </div>
           </div>
           
           <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
             This document is for accounting department payment processing<br>
-            All individual invoices must be signed by both parties
+            All individual deliveries must be signed by both parties with invoice numbers
           </div>
           
           <script>
@@ -496,7 +504,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     printWindow.document.close();
   };
 
-  // Print all shops weekly delivery lists with individual signatures
   const printAllShopsWeeklyDelivery = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -526,17 +533,20 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <th>Supply Name</th>
                 <th>Date Delivered</th>
                 <th>Amount (ZAR)</th>
-                <th>Ordered By</th>
+                <th>Invoice Number</th>
                 <th>Signatures</th>
               </tr>
             </thead>
             <tbody>
               ${deliveredOrders.map(order => `
                 <tr class="invoice-row">
-                  <td>${order.supply_name || 'N/A'}</td>
+                  <td><strong>${order.supply_name || 'N/A'}</strong></td>
                   <td>${order.delivery_date || 'N/A'}</td>
-                  <td>${formatCurrency(order.amount_delivered || 0)}</td>
-                  <td>${order.ordered_by || 'N/A'}</td>
+                  <td><strong>${formatCurrency(order.amount_delivered || 0)}</strong></td>
+                  <td>
+                    <div class="invoice-number"></div>
+                    <div style="font-size: 10px; color: #666; text-align: center; margin-top: 2px;">Write Invoice No.</div>
+                  </td>
                   <td>
                     <div class="signature-container">
                       <div>
@@ -560,23 +570,20 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             </tbody>
           </table>
           
-          <div style="margin-top: 30px; padding: 20px; border: 1px solid #333; background-color: #f9f9f9;">
-            <div style="text-align: center; font-weight: bold; margin-bottom: 15px;">FINAL AUTHORIZATION</div>
-            <div class="signature-section">
+          <div class="final-authorization">
+            <div style="text-align: center; font-weight: bold; margin-bottom: 15px; font-size: 16px;">FINAL AUTHORIZATION FOR PAYMENT</div>
+            <div class="authorization-signatures">
               <div>
-                <div class="signature-line" style="width: 250px;"></div>
+                <div class="authorization-line"></div>
                 <div class="signature-label">Manager/Authorized Signatory</div>
+                <div style="font-size: 10px; color: #666; text-align: center; margin-top: 5px;">Name & Date</div>
               </div>
               <div>
-                <div class="signature-line" style="width: 250px;"></div>
+                <div class="authorization-line"></div>
                 <div class="signature-label">Accounting Department</div>
+                <div style="font-size: 10px; color: #666; text-align: center; margin-top: 5px;">Name & Date</div>
               </div>
             </div>
-          </div>
-          
-          <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
-            This document is for accounting department payment processing<br>
-            All individual invoices must be signed by both parties
           </div>
         </div>
       `;
@@ -628,23 +635,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               background-color: #f0f0f0; 
               font-weight: bold; 
             }
-            .signature-section {
-              display: flex;
-              justify-content: space-between;
-              margin-top: 20px;
-              padding: 10px;
-              border: 1px solid #ddd;
-            }
-            .signature-line {
-              border-top: 1px solid #333;
-              width: 180px;
-              margin-top: 40px;
-            }
-            .signature-label {
-              margin-top: 5px;
-              font-size: 12px;
-              text-align: center;
-            }
             .invoice-row {
               border-bottom: 2px solid #333;
             }
@@ -652,6 +642,39 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               display: flex;
               justify-content: space-between;
               margin-top: 10px;
+            }
+            .signature-line {
+              border-top: 1px solid #333;
+              width: 150px;
+              margin-top: 30px;
+            }
+            .signature-label {
+              margin-top: 5px;
+              font-size: 11px;
+              text-align: center;
+              color: #666;
+            }
+            .invoice-number {
+              width: 120px;
+              height: 30px;
+              border: 1px dashed #999;
+              background-color: #f9f9f9;
+            }
+            .final-authorization {
+              margin-top: 40px;
+              padding: 20px;
+              border: 2px solid #333;
+              background-color: #f9f9f9;
+            }
+            .authorization-signatures {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 20px;
+            }
+            .authorization-line {
+              border-top: 1px solid #333;
+              width: 250px;
+              margin-top: 40px;
             }
             @media print {
               body { margin: 0; }
@@ -678,7 +701,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     printWindow.document.close();
   };
 
-  // Get budgets and orders for each shop with proper budget calculation
   const shopsWithBudgets = shops.map(shop => {
     const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === currentWeekStart);
     const shopWeekOrders = orders.filter(o => {
@@ -686,19 +708,10 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       return o.shop === shop && orderDate >= new Date(currentWeekStart);
     });
 
-    // Calculate total ordered amount for the week
     const totalOrdered = shopWeekOrders.reduce((sum, order) => sum + (order.order_amount || 0), 0);
-    
-    // Calculate total delivered amount for the week (what was actually received)
     const totalDelivered = shopWeekOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
-    
-    // Calculate remaining amounts
     const budgetAmount = budget?.budget_amount || 0;
-    
-    // Remaining budget if ALL orders were delivered
     const remainingIfAllDelivered = budgetAmount - totalOrdered;
-    
-    // Remaining budget based on ACTUAL deliveries
     const remainingBasedOnDelivered = budgetAmount - totalDelivered;
 
     return {
@@ -759,7 +772,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <p className="text-muted-foreground">Manage purchase orders and deliveries</p>
         </div>
         <div className="flex gap-2">
-          {/* Print Weekly Delivery List Button */}
           {selectedShop === "All" ? (
             <Button 
               variant="outline" 
@@ -965,7 +977,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             </div>
           </div>
           
-          {/* Active filters display */}
           {(searchQuery || dateFrom || dateTo || showCurrentWeekOnly) && (
             <div className="mt-4 flex flex-wrap gap-2">
               {searchQuery && (
@@ -1134,6 +1145,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       )}
 
+      {/* Order Status Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
@@ -1173,6 +1185,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </Card>
       </div>
 
+      {/* MAIN ORDER LIST TABLE - This is what you were missing */}
       <Card>
         <CardHeader>
           <CardTitle>Order List</CardTitle>
@@ -1191,7 +1204,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <TableHead>Contact Person</TableHead>
                 <SortableHeader field="order_amount">Amount (ZAR)</SortableHeader>
                 <SortableHeader field="amount_delivered">Delivered (ZAR)</SortableHeader>
-                <SortableHeader field="delivery_date">Delivery Date</SortableHeader>
+                <SortableHeader field="delivery_date">Delivery Date</TableHead>
                 <TableHead>Shop</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
