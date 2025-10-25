@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from 'react';
 import type { Tables } from "@/integrations/supabase/types";
+import { useNavigate } from "react-router-dom";
 
 interface DashboardProps {
   selectedShop: Shop;
@@ -22,6 +23,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
   const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([]);
   const [weeklyBudgets, setWeeklyBudgets] = useState<WeeklyBudget[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
@@ -190,6 +192,31 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     (sum, o) => sum + (Number(o.order_amount) || 0), 0
   );
 
+  // Navigation handlers
+  const handleNavigateToBudget = () => {
+    navigate('/orders');
+  };
+
+  const handleNavigateToOrders = () => {
+    navigate('/orders');
+  };
+
+  const handleNavigateToSupplies = () => {
+    navigate('/supplies');
+  };
+
+  const handleNavigateToIncome = () => {
+    navigate('/income');
+  };
+
+  const handleNavigateToPendingOrders = () => {
+    navigate('/orders');
+  };
+
+  const handleNavigateToInventory = () => {
+    navigate('/supplies');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -209,34 +236,42 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
 
       {/* Budget Overview Section */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Weekly Budget"
-          value={formatCurrency(weeklyBudgetAmount)}
-          description={currentWeekBudget ? "Current week" : "Not set"}
-          icon={DollarSign}
-          variant="default"
-        />
-        <MetricCard
-          title="Orders Placed"
-          value={formatCurrency(totalOrderAmount)}
-          description="This week's spending"
-          icon={ShoppingCart}
-          variant="default"
-        />
-        <MetricCard
-          title="Budget Savings"
-          value={formatCurrency(budgetSavings)}
-          description="From partial deliveries"
-          icon={TrendingUp}
-          variant="success"
-        />
-        <MetricCard
-          title="Available Budget"
-          value={formatCurrency(availableBudget)}
-          description={`Remaining: ${formatCurrency(budgetRemaining)}`}
-          icon={DollarSign}
-          variant={availableBudget >= 0 ? "success" : "warning"}
-        />
+        <div onClick={handleNavigateToBudget} className="cursor-pointer">
+          <MetricCard
+            title="Weekly Budget"
+            value={formatCurrency(weeklyBudgetAmount)}
+            description={currentWeekBudget ? "Current week" : "Not set"}
+            icon={DollarSign}
+            variant="default"
+          />
+        </div>
+        <div onClick={handleNavigateToOrders} className="cursor-pointer">
+          <MetricCard
+            title="Orders Placed"
+            value={formatCurrency(totalOrderAmount)}
+            description="This week's spending"
+            icon={ShoppingCart}
+            variant="default"
+          />
+        </div>
+        <div onClick={handleNavigateToOrders} className="cursor-pointer">
+          <MetricCard
+            title="Budget Savings"
+            value={formatCurrency(budgetSavings)}
+            description="From partial deliveries"
+            icon={TrendingUp}
+            variant="success"
+          />
+        </div>
+        <div onClick={handleNavigateToBudget} className="cursor-pointer">
+          <MetricCard
+            title="Available Budget"
+            value={formatCurrency(availableBudget)}
+            description={`Remaining: ${formatCurrency(budgetRemaining)}`}
+            icon={DollarSign}
+            variant={availableBudget >= 0 ? "success" : "warning"}
+          />
+        </div>
       </div>
 
       {/* This Week's Orders Section */}
@@ -252,34 +287,42 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <MetricCard
-              title="Orders Placed This Week"
-              value={formatCurrency(totalOrderAmount)}
-              description={`${currentWeekOrders.length} orders`}
-              icon={ShoppingCart}
-              variant="default"
-            />
-            <MetricCard
-              title="Delivered This Week"
-              value={formatCurrency(currentWeekDeliveredAmount)}
-              description={`${currentWeekDelivered.length} orders`}
-              icon={CheckCircle}
-              variant="success"
-            />
-            <MetricCard
-              title="Remaining (Not Delivered)"
-              value={formatCurrency(currentWeekPendingAmount)}
-              description={`${currentWeekPending.length} orders pending`}
-              icon={Clock}
-              variant="warning"
-            />
-            <MetricCard
-              title="Prev Week → This Week"
-              value={formatCurrency(previousWeekOrdersDeliveredAmount)}
-              description={`${previousWeekOrdersDeliveredThisWeek.length} orders`}
-              icon={Truck}
-              variant="success"
-            />
+            <div onClick={handleNavigateToOrders} className="cursor-pointer">
+              <MetricCard
+                title="Orders Placed This Week"
+                value={formatCurrency(totalOrderAmount)}
+                description={`${currentWeekOrders.length} orders`}
+                icon={ShoppingCart}
+                variant="default"
+              />
+            </div>
+            <div onClick={handleNavigateToOrders} className="cursor-pointer">
+              <MetricCard
+                title="Delivered This Week"
+                value={formatCurrency(currentWeekDeliveredAmount)}
+                description={`${currentWeekDelivered.length} orders`}
+                icon={CheckCircle}
+                variant="success"
+              />
+            </div>
+            <div onClick={handleNavigateToOrders} className="cursor-pointer">
+              <MetricCard
+                title="Remaining (Not Delivered)"
+                value={formatCurrency(currentWeekPendingAmount)}
+                description={`${currentWeekPending.length} orders pending`}
+                icon={Clock}
+                variant="warning"
+              />
+            </div>
+            <div onClick={handleNavigateToOrders} className="cursor-pointer">
+              <MetricCard
+                title="Prev Week → This Week"
+                value={formatCurrency(previousWeekOrdersDeliveredAmount)}
+                description={`${previousWeekOrdersDeliveredThisWeek.length} orders`}
+                icon={Truck}
+                variant="success"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -297,105 +340,123 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
-            <MetricCard
-              title="Total Delivered (All)"
-              value={formatCurrency(totalDeliveredAll)}
-              description="This week + Previous week deliveries"
-              icon={CheckCircle}
-              variant="success"
-            />
-            <MetricCard
-              title="Still Awaiting Delivery"
-              value={formatCurrency(stillAwaitingDeliveryAmount)}
-              description={`${stillAwaitingDelivery.length} orders pending`}
-              icon={Clock}
-              variant="warning"
-            />
-            <MetricCard
-              title="Grand Total Ordered"
-              value={formatCurrency(totalOrderAmount)}
-              description="This week's total spending"
-              icon={ShoppingCart}
-              variant="default"
-            />
+            <div onClick={handleNavigateToOrders} className="cursor-pointer">
+              <MetricCard
+                title="Total Delivered (All)"
+                value={formatCurrency(totalDeliveredAll)}
+                description="This week + Previous week deliveries"
+                icon={CheckCircle}
+                variant="success"
+              />
+            </div>
+            <div onClick={handleNavigateToPendingOrders} className="cursor-pointer">
+              <MetricCard
+                title="Still Awaiting Delivery"
+                value={formatCurrency(stillAwaitingDeliveryAmount)}
+                description={`${stillAwaitingDelivery.length} orders pending`}
+                icon={Clock}
+                variant="warning"
+              />
+            </div>
+            <div onClick={handleNavigateToOrders} className="cursor-pointer">
+              <MetricCard
+                title="Grand Total Ordered"
+                value={formatCurrency(totalOrderAmount)}
+                description="This week's total spending"
+                icon={ShoppingCart}
+                variant="default"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Additional Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Total Supplies"
-          value={filteredSupplies.length.toString()}
-          description="Items in inventory"
-          icon={Package}
-          variant="default"
-        />
-        <MetricCard
-          title="Pending Orders"
-          value={pendingOrders.length.toString()}
-          description="All orders awaiting delivery"
-          icon={ShoppingCart}
-          variant="warning"
-        />
-        <MetricCard
-          title="Today's Net Income"
-          value={formatCurrency(todayIncome)}
-          description={`Weekly: ${formatCurrency(weeklyIncome)}`}
-          icon={todayIncome >= 0 ? TrendingUp : DollarSign}
-          variant={todayIncome >= 0 ? "success" : "destructive"}
-        />
-        <MetricCard
-          title="Inventory Value"
-          value={formatCurrency(filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0))}
-          description="Total supply amount"
-          icon={Package}
-          variant="default"
-        />
+        <div onClick={handleNavigateToSupplies} className="cursor-pointer">
+          <MetricCard
+            title="Total Supplies"
+            value={filteredSupplies.length.toString()}
+            description="Items in inventory"
+            icon={Package}
+            variant="default"
+          />
+        </div>
+        <div onClick={handleNavigateToPendingOrders} className="cursor-pointer">
+          <MetricCard
+            title="Pending Orders"
+            value={pendingOrders.length.toString()}
+            description="All orders awaiting delivery"
+            icon={ShoppingCart}
+            variant="warning"
+          />
+        </div>
+        <div onClick={handleNavigateToIncome} className="cursor-pointer">
+          <MetricCard
+            title="Today's Net Income"
+            value={formatCurrency(todayIncome)}
+            description={`Weekly: ${formatCurrency(weeklyIncome)}`}
+            icon={todayIncome >= 0 ? TrendingUp : DollarSign}
+            variant={todayIncome >= 0 ? "success" : "destructive"}
+          />
+        </div>
+        <div onClick={handleNavigateToInventory} className="cursor-pointer">
+          <MetricCard
+            title="Inventory Value"
+            value={formatCurrency(filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0))}
+            description="Total supply amount"
+            icon={Package}
+            variant="default"
+          />
+        </div>
       </div>
 
       {/* Supplies Summary */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Inventory Summary</CardTitle>
-            <CardDescription>Total supplies and value</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm font-medium">Total Items:</span>
-                <span className="text-sm">{filteredSupplies.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium">Total Value:</span>
-                <span className="text-sm">{formatCurrency(filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0))}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Supplies</CardTitle>
-            <CardDescription>Latest inventory items</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {filteredSupplies.slice(0, 5).map((item) => (
-                <div key={item.id} className="flex justify-between text-sm">
-                  <span className="font-medium">{item.name}</span>
-                  <span className="text-muted-foreground">
-                    {item.amount}
-                  </span>
+        <div onClick={handleNavigateToSupplies} className="cursor-pointer">
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader>
+              <CardTitle>Inventory Summary</CardTitle>
+              <CardDescription>Total supplies and value</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">Total Items:</span>
+                  <span className="text-sm">{filteredSupplies.length}</span>
                 </div>
-              ))}
-              {filteredSupplies.length === 0 && (
-                <p className="text-sm text-muted-foreground">No supplies yet</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">Total Value:</span>
+                  <span className="text-sm">{formatCurrency(filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0))}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div onClick={handleNavigateToSupplies} className="cursor-pointer">
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader>
+              <CardTitle>Recent Supplies</CardTitle>
+              <CardDescription>Latest inventory items</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {filteredSupplies.slice(0, 5).map((item) => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <span className="font-medium">{item.name}</span>
+                    <span className="text-muted-foreground">
+                      {item.amount}
+                    </span>
+                  </div>
+                ))}
+                {filteredSupplies.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No supplies yet</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
