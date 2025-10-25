@@ -37,6 +37,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   
+  // New state for sorting, filtering and querying
   const [sortField, setSortField] = useState<SortField>('order_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,6 +96,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     fetchData();
   }, []);
 
+  // Get current week start (Monday)
   const getCurrentWeekStart = () => {
     const now = new Date();
     const day = now.getDay();
@@ -104,6 +106,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     return monday.toISOString().split('T')[0];
   };
 
+  // Get current week end (Sunday)
   const getCurrentWeekEnd = () => {
     const now = new Date();
     const day = now.getDay();
@@ -116,11 +119,14 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const currentWeekStart = getCurrentWeekStart();
   const currentWeekEnd = getCurrentWeekEnd();
 
+  // Filter and sort orders
   const filteredOrders = orders.filter(order => {
+    // Shop filter
     if (selectedShop !== "All" && order.shop !== selectedShop) {
       return false;
     }
 
+    // Search query filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const matchesName = order.supply_name?.toLowerCase().includes(query);
@@ -132,6 +138,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       }
     }
 
+    // Date range filter
     if (dateFrom && order.order_date < dateFrom) {
       return false;
     }
@@ -139,6 +146,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       return false;
     }
 
+    // Current week filter
     if (showCurrentWeekOnly) {
       const orderDate = new Date(order.order_date);
       const weekStart = new Date(currentWeekStart);
@@ -152,15 +160,18 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     return true;
   });
 
+  // Sort orders
   const sortedOrders = [...filteredOrders].sort((a, b) => {
     let aValue: any = a[sortField];
     let bValue: any = b[sortField];
 
+    // Handle string comparison
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       aValue = aValue.toLowerCase();
       bValue = bValue.toLowerCase();
     }
 
+    // Handle date comparison
     if (sortField.includes('date')) {
       aValue = new Date(aValue).getTime();
       bValue = new Date(bValue).getTime();
@@ -302,6 +313,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     await fetchData();
   };
 
+  // Get delivered orders for the current week for each shop
   const getWeeklyDeliveredOrders = (shopName: string) => {
     return orders.filter(order => {
       const orderDate = new Date(order.order_date);
@@ -315,6 +327,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     });
   };
 
+  // Print weekly delivery list for a specific shop with individual signatures and invoice numbers
   const printWeeklyDeliveryList = (shopName: string) => {
     const deliveredOrders = getWeeklyDeliveredOrders(shopName);
     
@@ -504,6 +517,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     printWindow.document.close();
   };
 
+  // Print all shops weekly delivery lists with individual signatures and invoice numbers
   const printAllShopsWeeklyDelivery = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -584,6 +598,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <div style="font-size: 10px; color: #666; text-align: center; margin-top: 5px;">Name & Date</div>
               </div>
             </div>
+          </div>
+          
+          <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
+            This document is for accounting department payment processing<br>
+            All individual deliveries must be signed by both parties with invoice numbers
           </div>
         </div>
       `;
@@ -701,6 +720,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     printWindow.document.close();
   };
 
+  // Get budgets and orders for each shop with proper budget calculation
   const shopsWithBudgets = shops.map(shop => {
     const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === currentWeekStart);
     const shopWeekOrders = orders.filter(o => {
@@ -708,10 +728,19 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       return o.shop === shop && orderDate >= new Date(currentWeekStart);
     });
 
+    // Calculate total ordered amount for the week
     const totalOrdered = shopWeekOrders.reduce((sum, order) => sum + (order.order_amount || 0), 0);
+    
+    // Calculate total delivered amount for the week (what was actually received)
     const totalDelivered = shopWeekOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
+    
+    // Calculate remaining amounts
     const budgetAmount = budget?.budget_amount || 0;
+    
+    // Remaining budget if ALL orders were delivered
     const remainingIfAllDelivered = budgetAmount - totalOrdered;
+    
+    // Remaining budget based on ACTUAL deliveries
     const remainingBasedOnDelivered = budgetAmount - totalDelivered;
 
     return {
@@ -772,6 +801,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <p className="text-muted-foreground">Manage purchase orders and deliveries</p>
         </div>
         <div className="flex gap-2">
+          {/* Print Weekly Delivery List Button */}
           {selectedShop === "All" ? (
             <Button 
               variant="outline" 
@@ -977,6 +1007,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             </div>
           </div>
           
+          {/* Active filters display */}
           {(searchQuery || dateFrom || dateTo || showCurrentWeekOnly) && (
             <div className="mt-4 flex flex-wrap gap-2">
               {searchQuery && (
@@ -1145,7 +1176,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       )}
 
-      {/* Order Status Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
@@ -1185,7 +1215,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </Card>
       </div>
 
-      {/* MAIN ORDER LIST TABLE - This is what you were missing */}
       <Card>
         <CardHeader>
           <CardTitle>Order List</CardTitle>
