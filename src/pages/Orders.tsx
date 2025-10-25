@@ -327,7 +327,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     });
   };
 
-  // Print weekly delivery list for a specific shop with individual signatures
+  // Print weekly delivery list for a specific shop with individual signatures and invoice numbers
   const printWeeklyDeliveryList = (shopName: string) => {
     const deliveredOrders = getWeeklyDeliveredOrders(shopName);
     
@@ -408,6 +408,12 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               justify-content: space-between;
               margin-top: 10px;
             }
+            .invoice-number {
+              height: 20px;
+              border-bottom: 1px solid #333;
+              min-width: 100px;
+              display: inline-block;
+            }
             @media print {
               body { margin: 0; }
               .no-print { display: none; }
@@ -425,6 +431,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <table>
             <thead>
               <tr>
+                <th>Invoice Number</th>
                 <th>Supply Name</th>
                 <th>Date Delivered</th>
                 <th>Amount (ZAR)</th>
@@ -435,6 +442,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             <tbody>
               ${deliveredOrders.map(order => `
                 <tr class="invoice-row">
+                  <td>
+                    <div class="invoice-number"></div>
+                  </td>
                   <td>${order.supply_name || 'N/A'}</td>
                   <td>${order.delivery_date || 'N/A'}</td>
                   <td>${formatCurrency(order.amount_delivered || 0)}</td>
@@ -454,7 +464,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 </tr>
               `).join('')}
               <tr class="total-row">
-                <td colspan="2"><strong>Total Amount</strong></td>
+                <td></td>
+                <td><strong>Total Amount</strong></td>
+                <td></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
                 <td></td>
                 <td></td>
@@ -478,7 +490,8 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           
           <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
             This document is for accounting department payment processing<br>
-            All individual invoices must be signed by both parties
+            All individual invoices must be signed by both parties<br>
+            Invoice numbers will be filled during payment processing
           </div>
           
           <script>
@@ -496,7 +509,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     printWindow.document.close();
   };
 
-  // Print all shops weekly delivery lists with individual signatures
+  // Print all shops weekly delivery lists with individual signatures and invoice numbers
   const printAllShopsWeeklyDelivery = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -523,6 +536,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <table>
             <thead>
               <tr>
+                <th>Invoice Number</th>
                 <th>Supply Name</th>
                 <th>Date Delivered</th>
                 <th>Amount (ZAR)</th>
@@ -533,6 +547,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             <tbody>
               ${deliveredOrders.map(order => `
                 <tr class="invoice-row">
+                  <td>
+                    <div class="invoice-number"></div>
+                  </td>
                   <td>${order.supply_name || 'N/A'}</td>
                   <td>${order.delivery_date || 'N/A'}</td>
                   <td>${formatCurrency(order.amount_delivered || 0)}</td>
@@ -552,7 +569,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 </tr>
               `).join('')}
               <tr class="total-row">
-                <td colspan="2"><strong>Total Amount</strong></td>
+                <td></td>
+                <td><strong>Total Amount</strong></td>
+                <td></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
                 <td></td>
                 <td></td>
@@ -576,7 +595,8 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           
           <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
             This document is for accounting department payment processing<br>
-            All individual invoices must be signed by both parties
+            All individual invoices must be signed by both parties<br>
+            Invoice numbers will be filled during payment processing
           </div>
         </div>
       `;
@@ -652,6 +672,12 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               display: flex;
               justify-content: space-between;
               margin-top: 10px;
+            }
+            .invoice-number {
+              height: 20px;
+              border-bottom: 1px solid #333;
+              min-width: 100px;
+              display: inline-block;
             }
             @media print {
               body { margin: 0; }
@@ -970,7 +996,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             <div className="mt-4 flex flex-wrap gap-2">
               {searchQuery && (
                 <Badge variant="secondary" className="flex items-center gap-1">
-                  Search: "{searchQuery}"
+                  Search: "${searchQuery}"
                   <button onClick={() => setSearchQuery('')} className="ml-1 hover:text-destructive">
                     ×
                   </button>
