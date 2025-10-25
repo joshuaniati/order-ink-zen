@@ -37,6 +37,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   
+  // New state for sorting, filtering and querying
   const [sortField, setSortField] = useState<SortField>('order_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,6 +96,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     fetchData();
   }, []);
 
+  // Get current week start (Monday)
   const getCurrentWeekStart = () => {
     const now = new Date();
     const day = now.getDay();
@@ -104,6 +106,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     return monday.toISOString().split('T')[0];
   };
 
+  // Get current week end (Sunday)
   const getCurrentWeekEnd = () => {
     const now = new Date();
     const day = now.getDay();
@@ -116,11 +119,14 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const currentWeekStart = getCurrentWeekStart();
   const currentWeekEnd = getCurrentWeekEnd();
 
+  // Filter and sort orders
   const filteredOrders = orders.filter(order => {
+    // Shop filter
     if (selectedShop !== "All" && order.shop !== selectedShop) {
       return false;
     }
 
+    // Search query filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const matchesName = order.supply_name?.toLowerCase().includes(query);
@@ -132,6 +138,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       }
     }
 
+    // Date range filter
     if (dateFrom && order.order_date < dateFrom) {
       return false;
     }
@@ -139,6 +146,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       return false;
     }
 
+    // Current week filter
     if (showCurrentWeekOnly) {
       const orderDate = new Date(order.order_date);
       const weekStart = new Date(currentWeekStart);
@@ -152,15 +160,18 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     return true;
   });
 
+  // Sort orders
   const sortedOrders = [...filteredOrders].sort((a, b) => {
     let aValue: any = a[sortField];
     let bValue: any = b[sortField];
 
+    // Handle string comparison
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       aValue = aValue.toLowerCase();
       bValue = bValue.toLowerCase();
     }
 
+    // Handle date comparison
     if (sortField.includes('date')) {
       aValue = new Date(aValue).getTime();
       bValue = new Date(bValue).getTime();
@@ -302,6 +313,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     await fetchData();
   };
 
+  // Get delivered orders for the current week for each shop
   const getWeeklyDeliveredOrders = (shopName: string) => {
     return orders.filter(order => {
       const orderDate = new Date(order.order_date);
@@ -315,6 +327,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     });
   };
 
+  // Print weekly delivery list for a specific shop with individual signatures and invoice numbers
   const printWeeklyDeliveryList = (shopName: string) => {
     const deliveredOrders = getWeeklyDeliveredOrders(shopName);
     
@@ -504,6 +517,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     printWindow.document.close();
   };
 
+  // Print all shops weekly delivery lists with individual signatures and invoice numbers
   const printAllShopsWeeklyDelivery = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -584,6 +598,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <div style="font-size: 10px; color: #666; text-align: center; margin-top: 5px;">Name & Date</div>
               </div>
             </div>
+          </div>
+          
+          <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
+            This document is for accounting department payment processing<br>
+            All individual deliveries must be signed by both parties with invoice numbers
           </div>
         </div>
       `;
@@ -701,6 +720,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     printWindow.document.close();
   };
 
+  // Get budgets and orders for each shop with proper budget calculation
   const shopsWithBudgets = shops.map(shop => {
     const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === currentWeekStart);
     const shopWeekOrders = orders.filter(o => {
@@ -708,10 +728,19 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       return o.shop === shop && orderDate >= new Date(currentWeekStart);
     });
 
+    // Calculate total ordered amount for the week
     const totalOrdered = shopWeekOrders.reduce((sum, order) => sum + (order.order_amount || 0), 0);
+    
+    // Calculate total delivered amount for the week (what was actually received)
     const totalDelivered = shopWeekOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
+    
+    // Calculate remaining amounts
     const budgetAmount = budget?.budget_amount || 0;
+    
+    // Remaining budget if ALL orders were delivered
     const remainingIfAllDelivered = budgetAmount - totalOrdered;
+    
+    // Remaining budget based on ACTUAL deliveries
     const remainingBasedOnDelivered = budgetAmount - totalDelivered;
 
     return {
@@ -772,6 +801,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <p className="text-muted-foreground">Manage purchase orders and deliveries</p>
         </div>
         <div className="flex gap-2">
+          {/* Print Weekly Delivery List Button */}
           {selectedShop === "All" ? (
             <Button 
               variant="outline" 
@@ -922,7 +952,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       </div>
 
-      {/* Rest of the component remains the same */}
+      {/* Search and Filter Section */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Search & Filter</CardTitle>
@@ -977,6 +1007,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             </div>
           </div>
           
+          {/* Active filters display */}
           {(searchQuery || dateFrom || dateTo || showCurrentWeekOnly) && (
             <div className="mt-4 flex flex-wrap gap-2">
               {searchQuery && (
@@ -1028,7 +1059,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </CardContent>
       </Card>
 
-      {/* Weekly Budgets and other sections remain the same */}
+      {/* Weekly Budgets Section */}
       <div>
         <h3 className="text-lg font-semibold mb-3">
           {selectedShop === "All" ? "Weekly Budgets - All Shops" : `Weekly Budget - ${selectedShop}`}
@@ -1067,7 +1098,192 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       </div>
 
-      {/* Rest of the component... */}
+      {/* Weekly Budget Report - Printable */}
+      {selectedShop !== "All" && (
+        <div>
+          <WeeklyBudgetReport
+            shop={selectedShop}
+            currentBudget={shopsWithBudgets.find(s => s.shop === selectedShop)?.budget || null}
+            weekOrders={shopsWithBudgets.find(s => s.shop === selectedShop)?.orders || []}
+            weekStartStr={currentWeekStart}
+            totalOrdered={shopsWithBudgets.find(s => s.shop === selectedShop)?.totalOrdered || 0}
+            totalDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.totalDelivered || 0}
+            remainingIfAllDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingIfAllDelivered || 0}
+            remainingBasedOnDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBasedOnDelivered || 0}
+            budgetAmount={shopsWithBudgets.find(s => s.shop === selectedShop)?.budgetAmount || 0}
+          />
+        </div>
+      )}
+
+      {/* Budget Summary Cards */}
+      {selectedShop !== "All" && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Budget Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Weekly Budget:</span>
+                  <span className="text-sm font-medium">{formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.budgetAmount || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Orders Placed:</span>
+                  <span className="text-sm font-medium">{formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.totalOrdered || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Amount Delivered:</span>
+                  <span className="text-sm font-medium">{formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.totalDelivered || 0)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Remaining Budget</CardTitle>
+              <CardDescription>If all orders delivered</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingIfAllDelivered || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Based on {shopsWithBudgets.find(s => s.shop === selectedShop)?.orders.length || 0} orders
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Available Budget</CardTitle>
+              <CardDescription>Based on actual deliveries</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${
+                (shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBasedOnDelivered || 0) >= 0 
+                  ? 'text-green-600' 
+                  : 'text-red-600'
+              }`}>
+                {formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBasedOnDelivered || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Actual cash remaining
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending Orders</CardTitle>
+            <CardDescription>Awaiting delivery</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{pendingOrders.length}</div>
+            <p className="text-sm text-muted-foreground">
+              {formatCurrency(pendingOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0))} total
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Partial Deliveries</CardTitle>
+            <CardDescription>Incomplete orders</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{partialOrders.length}</div>
+            <p className="text-sm text-muted-foreground">
+              {formatCurrency(partialOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0))} ordered
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Completed</CardTitle>
+            <CardDescription>Fully delivered</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{deliveredOrders.length}</div>
+            <p className="text-sm text-muted-foreground">
+              {formatCurrency(deliveredOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0))} total
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Order List</CardTitle>
+          <CardDescription>
+            {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders
+            {sortedOrders.length !== filteredOrders.length && ` (${sortedOrders.length} of ${filteredOrders.length} shown)`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <SortableHeader field="supply_name">Supply</SortableHeader>
+                <SortableHeader field="order_date">Order Date</SortableHeader>
+                <TableHead>Ordered By</TableHead>
+                <TableHead>Contact Person</TableHead>
+                <SortableHeader field="order_amount">Amount (ZAR)</SortableHeader>
+                <SortableHeader field="amount_delivered">Delivered (ZAR)</SortableHeader>
+                <SortableHeader field="delivery_date">Delivery Date</TableHead>
+                <TableHead>Shop</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedOrders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">{order.supply_name}</TableCell>
+                  <TableCell>{order.order_date}</TableCell>
+                  <TableCell>{order.ordered_by}</TableCell>
+                  <TableCell>{order.contact_person}</TableCell>
+                  <TableCell>{formatCurrency(order.order_amount)}</TableCell>
+                  <TableCell>{formatCurrency(order.amount_delivered)}</TableCell>
+                  <TableCell>{order.delivery_date}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{order.shop}</Badge>
+                  </TableCell>
+                  <TableCell>{getStatusBadge(order.status)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(order)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(order.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {sortedOrders.length === 0 && (
+            <div className="py-12 text-center text-muted-foreground">
+              {searchQuery || dateFrom || dateTo || showCurrentWeekOnly 
+                ? "No orders match your search criteria. Try adjusting your filters."
+                : "No orders found. Create your first order to get started."}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
