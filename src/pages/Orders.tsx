@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { WeeklyBudgetCard } from "@/components/orders/WeeklyBudgetCard";
 import { WeeklyBudgetReport } from "@/components/orders/WeeklyBudgetReport";
+import { useLocation } from "react-router-dom";
 
 interface OrdersProps {
   selectedShop: Shop;
@@ -43,8 +44,10 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showCurrentWeekOnly, setShowCurrentWeekOnly] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string>('');
   
   const today = new Date().toISOString().split('T')[0];
+  const location = useLocation();
   
   const [formData, setFormData] = useState({
     supply_id: "",
@@ -57,6 +60,50 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     shop: "",
     notes: "",
   });
+
+  // Get current week's start date (Monday)
+  const getCurrentWeekStart = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    return monday.toISOString().split('T')[0];
+  };
+
+  const getCurrentWeekEnd = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? 0 : 7);
+    const sunday = new Date(now.setDate(diff));
+    sunday.setHours(23, 59, 59, 999);
+    return sunday.toISOString().split('T')[0];
+  };
+
+  const currentWeekStart = getCurrentWeekStart();
+  const currentWeekEnd = getCurrentWeekEnd();
+
+  // Get previous week's start and end dates
+  const getPreviousWeekRange = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const currentWeekStartDiff = now.getDate() - day + (day === 0 ? -6 : 1);
+    
+    const previousWeekStart = new Date(now);
+    previousWeekStart.setDate(currentWeekStartDiff - 7);
+    previousWeekStart.setHours(0, 0, 0, 0);
+    
+    const previousWeekEnd = new Date(previousWeekStart);
+    previousWeekEnd.setDate(previousWeekStart.getDate() + 6);
+    previousWeekEnd.setHours(23, 59, 59, 999);
+    
+    return {
+      start: previousWeekStart.toISOString().split('T')[0],
+      end: previousWeekEnd.toISOString().split('T')[0]
+    };
+  };
+
+  const previousWeekRange = getPreviousWeekRange();
 
   const fetchData = async () => {
     try {
@@ -95,26 +142,81 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     fetchData();
   }, []);
 
-  const getCurrentWeekStart = () => {
-    const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(now.setDate(diff));
-    monday.setHours(0, 0, 0, 0);
-    return monday.toISOString().split('T')[0];
-  };
+  // Handle navigation state from dashboard
+  useEffect(() => {
+    const navigationState = location.state as {
+      filter?: string;
+      currentWeekStart?: string;
+      previousWeekRange?: any;
+    } | null;
 
-  const getCurrentWeekEnd = () => {
-    const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? 0 : 7);
-    const sunday = new Date(now.setDate(diff));
-    sunday.setHours(23, 59, 59, 999);
-    return sunday.toISOString().split('T')[0];
-  };
-
-  const currentWeekStart = getCurrentWeekStart();
-  const currentWeekEnd = getCurrentWeekEnd();
+    if (navigationState?.filter) {
+      setActiveFilter(navigationState.filter);
+      
+      switch (navigationState.filter) {
+        case 'current-week-orders':
+          setShowCurrentWeekOnly(true);
+          setSearchQuery('');
+          setDateFrom('');
+          setDateTo('');
+          break;
+          
+        case 'delivered-this-week':
+          setShowCurrentWeekOnly(true);
+          setSearchQuery('status:Delivered');
+          setDateFrom('');
+          setDateTo('');
+          break;
+          
+        case 'remaining-orders':
+          setShowCurrentWeekOnly(true);
+          setSearchQuery('status:Pending,Partial');
+          setDateFrom('');
+          setDateTo('');
+          break;
+          
+        case 'previous-week-delivered':
+          setShowCurrentWeekOnly(false);
+          setSearchQuery('status:Delivered');
+          setDateFrom(previousWeekRange.start);
+          setDateTo(previousWeekRange.end);
+          break;
+          
+        case 'total-delivered':
+          setShowCurrentWeekOnly(false);
+          setSearchQuery('status:Delivered');
+          setDateFrom('');
+          setDateTo('');
+          break;
+          
+        case 'still-awaiting':
+          setShowCurrentWeekOnly(false);
+          setSearchQuery('status:Pending,Partial');
+          setDateFrom('');
+          setDateTo('');
+          break;
+          
+        case 'pending':
+          setShowCurrentWeekOnly(false);
+          setSearchQuery('status:Pending');
+          setDateFrom('');
+          setDateTo('');
+          break;
+          
+        case 'budget':
+        case 'budget-savings':
+        case 'available-budget':
+          setShowCurrentWeekOnly(true);
+          setSearchQuery('');
+          setDateFrom('');
+          setDateTo('');
+          break;
+          
+        default:
+          break;
+      }
+    }
+  }, [location.state]);
 
   const filteredOrders = orders.filter(order => {
     if (selectedShop !== "All" && order.shop !== selectedShop) {
@@ -126,8 +228,10 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       const matchesName = order.supply_name?.toLowerCase().includes(query);
       const matchesOrderedBy = order.ordered_by?.toLowerCase().includes(query);
       const matchesContact = order.contact_person?.toLowerCase().includes(query);
+      const matchesStatus = query.includes('status:') && 
+        (query.includes(order.status?.toLowerCase() || ''));
       
-      if (!matchesName && !matchesOrderedBy && !matchesContact) {
+      if (!matchesName && !matchesOrderedBy && !matchesContact && !matchesStatus) {
         return false;
       }
     }
@@ -790,6 +894,29 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     </TableHead>
   );
 
+  const getFilterDescription = () => {
+    switch (activeFilter) {
+      case 'current-week-orders':
+        return 'Showing all orders placed this week';
+      case 'delivered-this-week':
+        return 'Showing orders delivered this week';
+      case 'remaining-orders':
+        return 'Showing pending orders from this week';
+      case 'previous-week-delivered':
+        return 'Showing previous week orders delivered this week';
+      case 'total-delivered':
+        return 'Showing all delivered orders';
+      case 'still-awaiting':
+        return 'Showing all orders awaiting delivery';
+      case 'pending':
+        return 'Showing all pending orders';
+      case 'budget':
+        return 'Showing current week orders for budget overview';
+      default:
+        return `${selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders`;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -803,7 +930,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Orders</h2>
-          <p className="text-muted-foreground">Manage purchase orders and deliveries</p>
+          <p className="text-muted-foreground">{getFilterDescription()}</p>
         </div>
         <div className="flex gap-2">
           {selectedShop === "All" ? (
@@ -968,7 +1095,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search"
-                  placeholder="Search by name, email..."
+                  placeholder="Search by name, email, or status:"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-8"
@@ -1010,7 +1137,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             </div>
           </div>
           
-          {(searchQuery || dateFrom || dateTo || showCurrentWeekOnly) && (
+          {(searchQuery || dateFrom || dateTo || showCurrentWeekOnly || activeFilter) && (
             <div className="mt-4 flex flex-wrap gap-2">
               {searchQuery && (
                 <Badge variant="secondary" className="flex items-center gap-1">
@@ -1044,6 +1171,14 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   </button>
                 </Badge>
               )}
+              {activeFilter && (
+                <Badge variant="default" className="flex items-center gap-1">
+                  Filter: {activeFilter.replace(/-/g, ' ')}
+                  <button onClick={() => setActiveFilter('')} className="ml-1 hover:text-destructive">
+                    ×
+                  </button>
+                </Badge>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -1052,6 +1187,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   setDateFrom('');
                   setDateTo('');
                   setShowCurrentWeekOnly(false);
+                  setActiveFilter('');
                 }}
               >
                 Clear All
@@ -1218,7 +1354,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         <CardHeader>
           <CardTitle>Order List</CardTitle>
           <CardDescription>
-            {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders
+            {getFilterDescription()}
             {sortedOrders.length !== filteredOrders.length && ` (${sortedOrders.length} of ${filteredOrders.length} shown)`}
           </CardDescription>
         </CardHeader>
