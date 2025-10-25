@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2, Search, Filter, ArrowUpDown, Printer } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ArrowUpDown, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -37,7 +37,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // New state for sorting, filtering and querying
   const [sortField, setSortField] = useState<SortField>('order_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,7 +76,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       setSupplies(suppliesResponse.data || []);
       setWeeklyBudgets(budgetsResponse.data || []);
 
-      const uniqueShops = [...new Set(suppliesResponse.data?.map(s => s.shop).filter(Boolean) || [])];
+      const uniqueShops = [...new Set(suppliesResponse.data?.map(s => s.shop).filter(Boolean) || [])] as string[];
       setShops(uniqueShops);
       
       if (uniqueShops.length > 0 && !formData.shop) {
@@ -96,7 +95,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     fetchData();
   }, []);
 
-  // Get current week start (Monday)
   const getCurrentWeekStart = () => {
     const now = new Date();
     const day = now.getDay();
@@ -106,7 +104,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     return monday.toISOString().split('T')[0];
   };
 
-  // Get current week end (Sunday)
   const getCurrentWeekEnd = () => {
     const now = new Date();
     const day = now.getDay();
@@ -119,14 +116,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const currentWeekStart = getCurrentWeekStart();
   const currentWeekEnd = getCurrentWeekEnd();
 
-  // Filter and sort orders
   const filteredOrders = orders.filter(order => {
-    // Shop filter
     if (selectedShop !== "All" && order.shop !== selectedShop) {
       return false;
     }
 
-    // Search query filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const matchesName = order.supply_name?.toLowerCase().includes(query);
@@ -138,7 +132,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       }
     }
 
-    // Date range filter
     if (dateFrom && order.order_date < dateFrom) {
       return false;
     }
@@ -146,7 +139,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       return false;
     }
 
-    // Current week filter
     if (showCurrentWeekOnly) {
       const orderDate = new Date(order.order_date);
       const weekStart = new Date(currentWeekStart);
@@ -160,21 +152,21 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     return true;
   });
 
-  // Sort orders
   const sortedOrders = [...filteredOrders].sort((a, b) => {
     let aValue: any = a[sortField];
     let bValue: any = b[sortField];
 
-    // Handle string comparison
+    if (aValue === null || aValue === undefined) aValue = '';
+    if (bValue === null || bValue === undefined) bValue = '';
+
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       aValue = aValue.toLowerCase();
       bValue = bValue.toLowerCase();
     }
 
-    // Handle date comparison
     if (sortField.includes('date')) {
-      aValue = new Date(aValue).getTime();
-      bValue = new Date(bValue).getTime();
+      aValue = new Date(aValue || 0).getTime();
+      bValue = new Date(bValue || 0).getTime();
     }
 
     if (aValue < bValue) {
@@ -313,7 +305,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     await fetchData();
   };
 
-  // Get delivered orders for the current week for each shop
   const getWeeklyDeliveredOrders = (shopName: string) => {
     return orders.filter(order => {
       const orderDate = new Date(order.order_date);
@@ -327,7 +318,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     });
   };
 
-  // Print weekly delivery list for a specific shop with individual signatures
   const printWeeklyDeliveryList = (shopName: string) => {
     const deliveredOrders = getWeeklyDeliveredOrders(shopName);
     
@@ -506,7 +496,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     printWindow.document.close();
   };
 
-  // Print all shops weekly delivery lists with individual signatures
   const printAllShopsWeeklyDelivery = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -698,7 +687,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     printWindow.document.close();
   };
 
-  // Get budgets and orders for each shop with proper budget calculation
   const shopsWithBudgets = shops.map(shop => {
     const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === currentWeekStart);
     const shopWeekOrders = orders.filter(o => {
@@ -706,19 +694,10 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       return o.shop === shop && orderDate >= new Date(currentWeekStart);
     });
 
-    // Calculate total ordered amount for the week
     const totalOrdered = shopWeekOrders.reduce((sum, order) => sum + (order.order_amount || 0), 0);
-    
-    // Calculate total delivered amount for the week (what was actually received)
     const totalDelivered = shopWeekOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
-    
-    // Calculate remaining amounts
     const budgetAmount = budget?.budget_amount || 0;
-    
-    // Remaining budget if ALL orders were delivered
     const remainingIfAllDelivered = budgetAmount - totalOrdered;
-    
-    // Remaining budget based on ACTUAL deliveries
     const remainingBasedOnDelivered = budgetAmount - totalDelivered;
 
     return {
@@ -779,7 +758,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <p className="text-muted-foreground">Manage purchase orders and deliveries</p>
         </div>
         <div className="flex gap-2">
-          {/* Print Weekly Delivery List Button */}
           {selectedShop === "All" ? (
             <Button 
               variant="outline" 
@@ -930,7 +908,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       </div>
 
-      {/* Search and Filter Section */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Search & Filter</CardTitle>
@@ -985,12 +962,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             </div>
           </div>
           
-          {/* Active filters display */}
           {(searchQuery || dateFrom || dateTo || showCurrentWeekOnly) && (
             <div className="mt-4 flex flex-wrap gap-2">
               {searchQuery && (
                 <Badge variant="secondary" className="flex items-center gap-1">
-                  Search: "${searchQuery}"
+                  Search: "{searchQuery}"
                   <button onClick={() => setSearchQuery('')} className="ml-1 hover:text-destructive">
                     ×
                   </button>
@@ -1037,7 +1013,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </CardContent>
       </Card>
 
-      {/* Weekly Budgets Section */}
       <div>
         <h3 className="text-lg font-semibold mb-3">
           {selectedShop === "All" ? "Weekly Budgets - All Shops" : `Weekly Budget - ${selectedShop}`}
@@ -1076,7 +1051,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       </div>
 
-      {/* Weekly Budget Report - Printable */}
       {selectedShop !== "All" && (
         <div>
           <WeeklyBudgetReport
@@ -1093,7 +1067,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       )}
 
-      {/* Budget Summary Cards */}
       {selectedShop !== "All" && (
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
@@ -1211,7 +1184,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <TableHead>Contact Person</TableHead>
                 <SortableHeader field="order_amount">Amount (ZAR)</SortableHeader>
                 <SortableHeader field="amount_delivered">Delivered (ZAR)</SortableHeader>
-                <SortableHeader field="delivery_date">Delivery Date</TableHead>
+                <SortableHeader field="delivery_date">Delivery Date</SortableHeader>
                 <TableHead>Shop</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
