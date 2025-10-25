@@ -408,6 +408,12 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               justify-content: space-between;
               margin-top: 10px;
             }
+            .invoice-number {
+              height: 20px;
+              border-bottom: 1px solid #333;
+              min-width: 100px;
+              display: inline-block;
+            }
             @media print {
               body { margin: 0; }
               .no-print { display: none; }
@@ -428,7 +434,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <th>Supply Name</th>
                 <th>Date Delivered</th>
                 <th>Amount (ZAR)</th>
-                <th>Ordered By</th>
+                <th>Invoice Number</th>
                 <th>Signatures</th>
               </tr>
             </thead>
@@ -438,7 +444,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   <td>${order.supply_name || 'N/A'}</td>
                   <td>${order.delivery_date || 'N/A'}</td>
                   <td>${formatCurrency(order.amount_delivered || 0)}</td>
-                  <td>${order.ordered_by || 'N/A'}</td>
+                  <td>
+                    <div class="invoice-number"></div>
+                  </td>
                   <td>
                     <div class="signature-container">
                       <div>
@@ -454,7 +462,8 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 </tr>
               `).join('')}
               <tr class="total-row">
-                <td colspan="2"><strong>Total Amount</strong></td>
+                <td><strong>Total Amount</strong></td>
+                <td></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
                 <td></td>
                 <td></td>
@@ -478,7 +487,8 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           
           <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
             This document is for accounting department payment processing<br>
-            All individual invoices must be signed by both parties
+            All individual invoices must be signed by both parties<br>
+            Invoice numbers to be filled manually during payment processing
           </div>
           
           <script>
@@ -526,7 +536,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <th>Supply Name</th>
                 <th>Date Delivered</th>
                 <th>Amount (ZAR)</th>
-                <th>Ordered By</th>
+                <th>Invoice Number</th>
                 <th>Signatures</th>
               </tr>
             </thead>
@@ -536,7 +546,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   <td>${order.supply_name || 'N/A'}</td>
                   <td>${order.delivery_date || 'N/A'}</td>
                   <td>${formatCurrency(order.amount_delivered || 0)}</td>
-                  <td>${order.ordered_by || 'N/A'}</td>
+                  <td>
+                    <div class="invoice-number"></div>
+                  </td>
                   <td>
                     <div class="signature-container">
                       <div>
@@ -552,7 +564,8 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 </tr>
               `).join('')}
               <tr class="total-row">
-                <td colspan="2"><strong>Total Amount</strong></td>
+                <td><strong>Total Amount</strong></td>
+                <td></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
                 <td></td>
                 <td></td>
@@ -576,7 +589,8 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           
           <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
             This document is for accounting department payment processing<br>
-            All individual invoices must be signed by both parties
+            All individual invoices must be signed by both parties<br>
+            Invoice numbers to be filled manually during payment processing
           </div>
         </div>
       `;
@@ -652,6 +666,12 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               display: flex;
               justify-content: space-between;
               margin-top: 10px;
+            }
+            .invoice-number {
+              height: 20px;
+              border-bottom: 1px solid #333;
+              min-width: 100px;
+              display: inline-block;
             }
             @media print {
               body { margin: 0; }
@@ -970,7 +990,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             <div className="mt-4 flex flex-wrap gap-2">
               {searchQuery && (
                 <Badge variant="secondary" className="flex items-center gap-1">
-                  Search: "{searchQuery}"
+                  Search: "${searchQuery}"
                   <button onClick={() => setSearchQuery('')} className="ml-1 hover:text-destructive">
                     ×
                   </button>
@@ -1191,7 +1211,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <TableHead>Contact Person</TableHead>
                 <SortableHeader field="order_amount">Amount (ZAR)</SortableHeader>
                 <SortableHeader field="amount_delivered">Delivered (ZAR)</SortableHeader>
-                <SortableHeader field="delivery_date">Delivery Date</SortableHeader>
+                <SortableHeader field="delivery_date">Delivery Date</TableHead>
                 <TableHead>Shop</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
