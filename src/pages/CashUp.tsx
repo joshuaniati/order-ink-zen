@@ -230,7 +230,7 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               Record Cash Up
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingRecord ? "Edit Record" : "Record Daily Cash Up"}</DialogTitle>
               <DialogDescription>
@@ -238,75 +238,84 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="date">Date *</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  required
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date *</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    required
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shop">Shop *</Label>
+                  <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value as Shop })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a shop" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {shops.map((shop) => (
+                        <SelectItem key={shop.id} value={shop.name}>
+                          {shop.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="shop">Shop *</Label>
-                <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value as Shop })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a shop" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {shops.map((shop) => (
-                      <SelectItem key={shop.id} value={shop.name}>
-                        {shop.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cash_amount">Daily Cash Amount (ZAR) *</Label>
+                  <Input
+                    id="cash_amount"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.cash_amount}
+                    onChange={(e) => setFormData({ ...formData, cash_amount: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="card_machine_amount">Mobile Card Machine Amount (ZAR) *</Label>
+                  <Input
+                    id="card_machine_amount"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.card_machine_amount}
+                    onChange={(e) => setFormData({ ...formData, card_machine_amount: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="cash_amount">Daily Cash Amount (ZAR) *</Label>
-                <Input
-                  id="cash_amount"
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.cash_amount}
-                  onChange={(e) => setFormData({ ...formData, cash_amount: parseFloat(e.target.value) || 0 })}
-                />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="account_amount">Account Amount (ZAR) *</Label>
+                  <Input
+                    id="account_amount"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.account_amount}
+                    onChange={(e) => setFormData({ ...formData, account_amount: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="direct_deposit_amount">Direct Deposit Amount (ZAR) *</Label>
+                  <Input
+                    id="direct_deposit_amount"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.direct_deposit_amount}
+                    onChange={(e) => setFormData({ ...formData, direct_deposit_amount: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="card_machine_amount">Mobile Card Machine Amount (ZAR) *</Label>
-                <Input
-                  id="card_machine_amount"
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.card_machine_amount}
-                  onChange={(e) => setFormData({ ...formData, card_machine_amount: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="account_amount">Account Amount (ZAR) *</Label>
-                <Input
-                  id="account_amount"
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.account_amount}
-                  onChange={(e) => setFormData({ ...formData, account_amount: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="direct_deposit_amount">Direct Deposit Amount (ZAR) *</Label>
-                <Input
-                  id="direct_deposit_amount"
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.direct_deposit_amount}
-                  onChange={(e) => setFormData({ ...formData, direct_deposit_amount: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="expenses">Expenses (ZAR) *</Label>
                 <Input
@@ -318,32 +327,42 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
                   onChange={(e) => setFormData({ ...formData, expenses: parseFloat(e.target.value) || 0 })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Total Daily Income (Auto-calculated)</Label>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(formData.cash_amount + formData.card_machine_amount + formData.account_amount + formData.direct_deposit_amount)}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div className="space-y-2">
+                  <Label>Total Daily Income</Label>
+                  <div className="text-2xl font-bold text-green-600">
+                    {formatCurrency(formData.cash_amount + formData.card_machine_amount + formData.account_amount + formData.direct_deposit_amount)}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Net Income</Label>
+                  <div className={`text-2xl font-bold ${
+                    ((formData.cash_amount + formData.card_machine_amount + formData.account_amount + formData.direct_deposit_amount) - formData.expenses) >= 0 
+                      ? 'text-green-600' 
+                      : 'text-red-600'
+                  }`}>
+                    {formatCurrency((formData.cash_amount + formData.card_machine_amount + formData.account_amount + formData.direct_deposit_amount) - formData.expenses)}
+                  </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Net Income (Auto-calculated)</Label>
-                <div className="text-2xl font-bold">
-                  {formatCurrency((formData.cash_amount + formData.card_machine_amount + formData.account_amount + formData.direct_deposit_amount) - formData.expenses)}
-                </div>
-              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
                 <Textarea
                   id="notes"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Any additional notes about today's cash up..."
                 />
               </div>
-              <div className="flex justify-end gap-2">
+
+              <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
                 </Button>
                 <Button type="submit">
-                  {editingRecord ? "Update" : "Record"}
+                  {editingRecord ? "Update Record" : "Record Cash Up"}
                 </Button>
               </div>
             </form>
@@ -351,71 +370,68 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
         </Dialog>
       </div>
 
-      <div>
-        <h3 className="text-lg font-semibold mb-3">Today's Performance</h3>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle>Daily Income</CardTitle>
-              <CardDescription>Total sales today</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">{formatCurrency(todayIncome)}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Daily Expenses</CardTitle>
-              <CardDescription>Operational costs</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-red-600">{formatCurrency(todayExpenses)}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Net Income</CardTitle>
-              <CardDescription>Profit/Loss today</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-3xl font-bold ${todayNet >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatCurrency(todayNet)}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Today's Income</CardTitle>
+            <CardDescription>Total sales today</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(todayIncome)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Today's Expenses</CardTitle>
+            <CardDescription>Operational costs</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{formatCurrency(todayExpenses)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Today's Net</CardTitle>
+            <CardDescription>Profit/Loss today</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${todayNet >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {formatCurrency(todayNet)}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div>
-        <h3 className="text-lg font-semibold mb-3">Weekly Summary (Last 7 Days)</h3>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle>Weekly Income</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(weeklyIncome)}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Weekly Expenses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(weeklyExpenses)}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Weekly Net</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${weeklyNet >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatCurrency(weeklyNet)}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Weekly Income</CardTitle>
+            <CardDescription>Last 7 days</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(weeklyIncome)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Weekly Expenses</CardTitle>
+            <CardDescription>Last 7 days</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(weeklyExpenses)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Weekly Net</CardTitle>
+            <CardDescription>Last 7 days</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${weeklyNet >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {formatCurrency(weeklyNet)}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -426,59 +442,67 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Shop</TableHead>
-                <TableHead>Cash</TableHead>
-                <TableHead>Card</TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead>Deposit</TableHead>
-                <TableHead>Total Income</TableHead>
-                <TableHead>Expenses</TableHead>
-                <TableHead>Net Income</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRecords.map((record) => (
-                <TableRow key={record.id}>
-                  <TableCell className="font-medium">{record.date}</TableCell>
-                  <TableCell>{record.shop}</TableCell>
-                  <TableCell className="text-green-600">{formatCurrency(record.cash_amount)}</TableCell>
-                  <TableCell className="text-green-600">{formatCurrency(record.card_machine_amount)}</TableCell>
-                  <TableCell className="text-green-600">{formatCurrency(record.account_amount)}</TableCell>
-                  <TableCell className="text-green-600">{formatCurrency(record.direct_deposit_amount)}</TableCell>
-                  <TableCell className="text-green-600 font-bold">{formatCurrency(record.daily_income)}</TableCell>
-                  <TableCell className="text-red-600">{formatCurrency(record.expenses)}</TableCell>
-                  <TableCell className={record.net_income >= 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
-                    {formatCurrency(record.net_income)}
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate">{record.notes}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(record)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(record.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="rounded-md border">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[100px]">Date</TableHead>
+                    <TableHead className="min-w-[120px]">Shop</TableHead>
+                    <TableHead className="min-w-[100px] text-right">Cash</TableHead>
+                    <TableHead className="min-w-[120px] text-right">Card Machine</TableHead>
+                    <TableHead className="min-w-[100px] text-right">Account</TableHead>
+                    <TableHead className="min-w-[120px] text-right">Direct Deposit</TableHead>
+                    <TableHead className="min-w-[120px] text-right">Total Income</TableHead>
+                    <TableHead className="min-w-[100px] text-right">Expenses</TableHead>
+                    <TableHead className="min-w-[120px] text-right">Net Income</TableHead>
+                    <TableHead className="min-w-[150px]">Notes</TableHead>
+                    <TableHead className="min-w-[100px] text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRecords.map((record) => (
+                    <TableRow key={record.id}>
+                      <TableCell className="font-medium whitespace-nowrap">{record.date}</TableCell>
+                      <TableCell className="whitespace-nowrap">{record.shop}</TableCell>
+                      <TableCell className="text-right text-green-600 whitespace-nowrap">{formatCurrency(record.cash_amount)}</TableCell>
+                      <TableCell className="text-right text-green-600 whitespace-nowrap">{formatCurrency(record.card_machine_amount)}</TableCell>
+                      <TableCell className="text-right text-green-600 whitespace-nowrap">{formatCurrency(record.account_amount)}</TableCell>
+                      <TableCell className="text-right text-green-600 whitespace-nowrap">{formatCurrency(record.direct_deposit_amount)}</TableCell>
+                      <TableCell className="text-right font-bold text-green-600 whitespace-nowrap">{formatCurrency(record.daily_income)}</TableCell>
+                      <TableCell className="text-right text-red-600 whitespace-nowrap">{formatCurrency(record.expenses)}</TableCell>
+                      <TableCell className={`text-right font-bold whitespace-nowrap ${
+                        record.net_income >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {formatCurrency(record.net_income)}
+                      </TableCell>
+                      <TableCell className="max-w-[150px] truncate" title={record.notes || ''}>
+                        {record.notes}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(record)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(record.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
           {filteredRecords.length === 0 && (
             <div className="py-12 text-center text-muted-foreground">
               No records found. Add your first cash up record to get started.
