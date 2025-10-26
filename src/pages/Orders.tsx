@@ -409,16 +409,19 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     await fetchData();
   };
 
+  // Updated function to include orders delivered during the week regardless of when they were ordered
   const getWeeklyDeliveredOrders = (shopName: string) => {
     return orders.filter(order => {
-      const orderDate = new Date(order.order_date);
+      const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
       const weekStart = new Date(currentWeekStart);
       const weekEnd = new Date(currentWeekEnd);
       
+      // Include orders that were delivered this week, regardless of when they were ordered
       return order.shop === shopName && 
              order.status === "Delivered" &&
-             orderDate >= weekStart && 
-             orderDate <= weekEnd;
+             deliveryDate && 
+             deliveryDate >= weekStart && 
+             deliveryDate <= weekEnd;
     });
   };
 
@@ -466,6 +469,12 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               font-size: 10px;
               color: #666;
               line-height: 1.3;
+            }
+            .subtitle {
+              font-size: 9px;
+              color: #888;
+              margin-bottom: 8px;
+              text-align: center;
             }
             table { 
               width: 100%; 
@@ -549,14 +558,17 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         <body>
           <div class="header">
             <div class="shop-name">${shopName} - Weekly Delivery List</div>
-            <div class="period">Period: ${currentWeekStart} to ${currentWeekEnd} | Generated: ${new Date().toLocaleDateString()}</div>
+            <div class="period">Delivery Period: ${currentWeekStart} to ${currentWeekEnd}</div>
+            <div class="subtitle">Includes all orders delivered this week (regardless of order date)</div>
+            <div class="period">Generated: ${new Date().toLocaleDateString()}</div>
           </div>
           
           <table>
             <thead>
               <tr>
                 <th style="width: 35%;">Supply Name</th>
-                <th style="width: 12%;">Date</th>
+                <th style="width: 12%;">Order Date</th>
+                <th style="width: 12%;">Delivery Date</th>
                 <th style="width: 15%;">Amount (ZAR)</th>
                 <th style="width: 15%;">Invoice #</th>
                 <th style="width: 23%;">Signatures</th>
@@ -566,6 +578,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               ${deliveredOrders.map(order => `
                 <tr class="invoice-row">
                   <td>${order.supply_name || 'N/A'}</td>
+                  <td>${order.order_date || 'N/A'}</td>
                   <td>${order.delivery_date || 'N/A'}</td>
                   <td>${formatCurrency(order.amount_delivered || 0)}</td>
                   <td><div class="invoice-number"></div></td>
@@ -585,6 +598,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               `).join('')}
               <tr class="total-row">
                 <td><strong>Total Amount</strong></td>
+                <td></td>
                 <td></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
                 <td></td>
@@ -644,14 +658,17 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         <div style="page-break-after: always;">
           <div class="header">
             <div class="shop-name">${shopName} - Weekly Delivery List</div>
-            <div class="period">Period: ${currentWeekStart} to ${currentWeekEnd} | Generated: ${new Date().toLocaleDateString()}</div>
+            <div class="period">Delivery Period: ${currentWeekStart} to ${currentWeekEnd}</div>
+            <div class="subtitle">Includes all orders delivered this week (regardless of order date)</div>
+            <div class="period">Generated: ${new Date().toLocaleDateString()}</div>
           </div>
           
           <table>
             <thead>
               <tr>
                 <th style="width: 35%;">Supply Name</th>
-                <th style="width: 12%;">Date</th>
+                <th style="width: 12%;">Order Date</th>
+                <th style="width: 12%;">Delivery Date</th>
                 <th style="width: 15%;">Amount (ZAR)</th>
                 <th style="width: 15%;">Invoice #</th>
                 <th style="width: 23%;">Signatures</th>
@@ -661,6 +678,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               ${deliveredOrders.map(order => `
                 <tr class="invoice-row">
                   <td>${order.supply_name || 'N/A'}</td>
+                  <td>${order.order_date || 'N/A'}</td>
                   <td>${order.delivery_date || 'N/A'}</td>
                   <td>${formatCurrency(order.amount_delivered || 0)}</td>
                   <td><div class="invoice-number"></div></td>
@@ -680,6 +698,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               `).join('')}
               <tr class="total-row">
                 <td><strong>Total Amount</strong></td>
+                <td></td>
                 <td></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
                 <td></td>
@@ -743,6 +762,12 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               font-size: 10px;
               color: #666;
               line-height: 1.3;
+            }
+            .subtitle {
+              font-size: 9px;
+              color: #888;
+              margin-bottom: 8px;
+              text-align: center;
             }
             table { 
               width: 100%; 
