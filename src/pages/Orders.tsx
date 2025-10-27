@@ -66,25 +66,19 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     notes: "",
   });
 
-  // Get current week's start date (Monday) and end date (Sunday)
+  // Get current week starting from today
   const getCurrentWeekRange = () => {
     const now = new Date();
-    const day = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
     
-    // Calculate Monday (start of week)
-    const monday = new Date(now);
-    const diffToMonday = day === 0 ? -6 : 1 - day; // If Sunday, go back 6 days, else go to previous Monday
-    monday.setDate(now.getDate() + diffToMonday);
-    monday.setHours(0, 0, 0, 0);
-    
-    // Calculate Sunday (end of week)
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
+    const end = new Date(now);
+    end.setDate(now.getDate() + 6); // 6 days from today (today + 6 days = 7 days total)
+    end.setHours(23, 59, 59, 999);
     
     return {
-      start: monday.toISOString().split('T')[0],
-      end: sunday.toISOString().split('T')[0]
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
     };
   };
 
@@ -92,19 +86,20 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const currentWeekStart = currentWeekRange.start;
   const currentWeekEnd = currentWeekRange.end;
 
-  // Get previous week's start and end dates (Monday to Sunday)
+  // Get previous week range (7 days before today to today-1)
   const getPreviousWeekRange = () => {
-    const currentRange = getCurrentWeekRange();
-    const monday = new Date(currentRange.start);
-    const sunday = new Date(currentRange.end);
+    const now = new Date();
+    const end = new Date(now);
+    end.setDate(now.getDate() - 1); // Yesterday
+    end.setHours(23, 59, 59, 999);
     
-    // Go back 7 days to get previous week
-    monday.setDate(monday.getDate() - 7);
-    sunday.setDate(sunday.getDate() - 7);
+    const start = new Date(now);
+    start.setDate(now.getDate() - 7); // 7 days before today
+    start.setHours(0, 0, 0, 0);
     
     return {
-      start: monday.toISOString().split('T')[0],
-      end: sunday.toISOString().split('T')[0]
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
     };
   };
 
@@ -938,13 +933,13 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const getFilterDescription = () => {
     switch (activeFilter) {
       case 'current-week-orders':
-        return 'Showing all orders placed this week';
+        return `Showing all orders placed from ${currentWeekStart} to ${currentWeekEnd}`;
       case 'delivered-this-week':
-        return 'Showing orders delivered this week';
+        return `Showing orders delivered from ${currentWeekStart} to ${currentWeekEnd}`;
       case 'remaining-orders':
-        return 'Showing pending orders from this week';
+        return `Showing pending orders from ${currentWeekStart} to ${currentWeekEnd}`;
       case 'previous-week-delivered':
-        return 'Showing previous week orders delivered this week';
+        return `Showing previous week orders delivered from ${previousWeekRange.start} to ${previousWeekRange.end}`;
       case 'total-delivered':
         return 'Showing all delivered orders';
       case 'still-awaiting':
@@ -952,7 +947,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       case 'pending':
         return 'Showing all pending orders';
       case 'budget':
-        return 'Showing current week orders for budget overview';
+        return `Showing current week orders (${currentWeekStart} to ${currentWeekEnd}) for budget overview`;
       default:
         return `${selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders`;
     }
@@ -990,7 +985,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="printDateFrom">From Date (Monday)</Label>
+                  <Label htmlFor="printDateFrom">From Date</Label>
                   <Input
                     id="printDateFrom"
                     type="date"
@@ -999,7 +994,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="printDateTo">To Date (Sunday)</Label>
+                  <Label htmlFor="printDateTo">To Date</Label>
                   <Input
                     id="printDateTo"
                     type="date"
