@@ -66,45 +66,45 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     notes: "",
   });
 
-  // Get current week's start date (Monday)
-  const getCurrentWeekStart = () => {
+  // Get current week's start date (Monday) and end date (Sunday)
+  const getCurrentWeekRange = () => {
     const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(now.setDate(diff));
+    const day = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    
+    // Calculate Monday (start of week)
+    const monday = new Date(now);
+    const diffToMonday = day === 0 ? -6 : 1 - day; // If Sunday, go back 6 days, else go to previous Monday
+    monday.setDate(now.getDate() + diffToMonday);
     monday.setHours(0, 0, 0, 0);
-    return monday.toISOString().split('T')[0];
-  };
-
-  const getCurrentWeekEnd = () => {
-    const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? 0 : 7);
-    const sunday = new Date(now.setDate(diff));
+    
+    // Calculate Sunday (end of week)
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
-    return sunday.toISOString().split('T')[0];
-  };
-
-  const currentWeekStart = getCurrentWeekStart();
-  const currentWeekEnd = getCurrentWeekEnd();
-
-  // Get previous week's start and end dates
-  const getPreviousWeekRange = () => {
-    const now = new Date();
-    const day = now.getDay();
-    const currentWeekStartDiff = now.getDate() - day + (day === 0 ? -6 : 1);
-    
-    const previousWeekStart = new Date(now);
-    previousWeekStart.setDate(currentWeekStartDiff - 7);
-    previousWeekStart.setHours(0, 0, 0, 0);
-    
-    const previousWeekEnd = new Date(previousWeekStart);
-    previousWeekEnd.setDate(previousWeekStart.getDate() + 6);
-    previousWeekEnd.setHours(23, 59, 59, 999);
     
     return {
-      start: previousWeekStart.toISOString().split('T')[0],
-      end: previousWeekEnd.toISOString().split('T')[0]
+      start: monday.toISOString().split('T')[0],
+      end: sunday.toISOString().split('T')[0]
+    };
+  };
+
+  const currentWeekRange = getCurrentWeekRange();
+  const currentWeekStart = currentWeekRange.start;
+  const currentWeekEnd = currentWeekRange.end;
+
+  // Get previous week's start and end dates (Monday to Sunday)
+  const getPreviousWeekRange = () => {
+    const currentRange = getCurrentWeekRange();
+    const monday = new Date(currentRange.start);
+    const sunday = new Date(currentRange.end);
+    
+    // Go back 7 days to get previous week
+    monday.setDate(monday.getDate() - 7);
+    sunday.setDate(sunday.getDate() - 7);
+    
+    return {
+      start: monday.toISOString().split('T')[0],
+      end: sunday.toISOString().split('T')[0]
     };
   };
 
@@ -884,7 +884,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === currentWeekStart);
     const shopWeekOrders = orders.filter(o => {
       const orderDate = new Date(o.order_date);
-      return o.shop === shop && orderDate >= new Date(currentWeekStart);
+      return o.shop === shop && orderDate >= new Date(currentWeekStart) && orderDate <= new Date(currentWeekEnd);
     });
 
     const totalOrdered = shopWeekOrders.reduce((sum, order) => sum + (order.order_amount || 0), 0);
@@ -990,7 +990,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="printDateFrom">From Date</Label>
+                  <Label htmlFor="printDateFrom">From Date (Monday)</Label>
                   <Input
                     id="printDateFrom"
                     type="date"
@@ -999,7 +999,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="printDateTo">To Date</Label>
+                  <Label htmlFor="printDateTo">To Date (Sunday)</Label>
                   <Input
                     id="printDateTo"
                     type="date"
