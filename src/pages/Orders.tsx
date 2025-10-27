@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2, Search, ArrowUpDown, Printer } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ArrowUpDown, Printer, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -45,6 +45,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const [dateTo, setDateTo] = useState('');
   const [showCurrentWeekOnly, setShowCurrentWeekOnly] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('');
+  
+  // New state for print date range
+  const [printDateFrom, setPrintDateFrom] = useState('');
+  const [printDateTo, setPrintDateTo] = useState('');
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   
   const today = new Date().toISOString().split('T')[0];
   const location = useLocation();
@@ -104,6 +109,14 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   };
 
   const previousWeekRange = getPreviousWeekRange();
+
+  // Initialize print dates with previous week range
+  useEffect(() => {
+    if (previousWeekRange.start && previousWeekRange.end) {
+      setPrintDateFrom(previousWeekRange.start);
+      setPrintDateTo(previousWeekRange.end);
+    }
+  }, [previousWeekRange]);
 
   const fetchData = async () => {
     try {
@@ -409,25 +422,26 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     await fetchData();
   };
 
-  // Updated function to include orders delivered during the week regardless of when they were ordered
-  const getWeeklyDeliveredOrders = (shopName: string) => {
+  // Updated function to include orders delivered during the selected date range
+  const getDeliveredOrdersByDateRange = (shopName: string, startDate: string, endDate: string) => {
     return orders.filter(order => {
       const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
-      const weekStart = new Date(currentWeekStart);
-      const weekEnd = new Date(currentWeekEnd);
+      const rangeStart = new Date(startDate);
+      const rangeEnd = new Date(endDate);
+      rangeEnd.setHours(23, 59, 59, 999);
       
-      // Include orders that were delivered this week, regardless of when they were ordered
+      // Include orders that were delivered within the selected date range, regardless of when they were ordered
       return order.shop === shopName && 
              order.status === "Delivered" &&
              deliveryDate && 
-             deliveryDate >= weekStart && 
-             deliveryDate <= weekEnd;
+             deliveryDate >= rangeStart && 
+             deliveryDate <= rangeEnd;
     });
   };
 
-  // Print compact weekly delivery list optimized for single page
-  const printWeeklyDeliveryList = (shopName: string) => {
-    const deliveredOrders = getWeeklyDeliveredOrders(shopName);
+  // Print compact delivery list for selected date range
+  const printDeliveryList = (shopName: string, startDate: string, endDate: string) => {
+    const deliveredOrders = getDeliveredOrdersByDateRange(shopName, startDate, endDate);
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -441,7 +455,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Weekly Delivery List - ${shopName}</title>
+          <title>Delivery List - ${shopName}</title>
           <style>
             @page {
               size: A4;
@@ -557,9 +571,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </head>
         <body>
           <div class="header">
-            <div class="shop-name">${shopName} - Weekly Delivery List</div>
-            <div class="period">Delivery Period: ${currentWeekStart} to ${currentWeekEnd}</div>
-            <div class="subtitle">Includes all orders delivered this week (regardless of order date)</div>
+            <div class="shop-name">${shopName} - Delivery List</div>
+            <div class="period">Delivery Period: ${startDate} to ${endDate}</div>
+            <div class="subtitle">Includes all orders delivered in the selected date range (regardless of order date)</div>
             <div class="period">Generated: ${new Date().toLocaleDateString()}</div>
           </div>
           
@@ -636,10 +650,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     `);
     
     printWindow.document.close();
+    setIsPrintDialogOpen(false);
   };
 
-  // Print all shops with compact layout
-  const printAllShopsWeeklyDelivery = () => {
+  // Print all shops with compact layout for selected date range
+  const printAllShopsDeliveryList = (startDate: string, endDate: string) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast.error("Please allow pop-ups to print the delivery lists");
@@ -649,7 +664,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     let allContent = '';
     
     shops.forEach(shopName => {
-      const deliveredOrders = getWeeklyDeliveredOrders(shopName);
+      const deliveredOrders = getDeliveredOrdersByDateRange(shopName, startDate, endDate);
       if (deliveredOrders.length === 0) return;
       
       const totalAmount = deliveredOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
@@ -657,9 +672,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       const shopContent = `
         <div style="page-break-after: always;">
           <div class="header">
-            <div class="shop-name">${shopName} - Weekly Delivery List</div>
-            <div class="period">Delivery Period: ${currentWeekStart} to ${currentWeekEnd}</div>
-            <div class="subtitle">Includes all orders delivered this week (regardless of order date)</div>
+            <div class="shop-name">${shopName} - Delivery List</div>
+            <div class="period">Delivery Period: ${startDate} to ${endDate}</div>
+            <div class="subtitle">Includes all orders delivered in the selected date range (regardless of order date)</div>
             <div class="period">Generated: ${new Date().toLocaleDateString()}</div>
           </div>
           
@@ -734,7 +749,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>All Shops Weekly Delivery Lists</title>
+          <title>All Shops Delivery Lists</title>
           <style>
             @page {
               size: A4;
@@ -849,7 +864,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           </style>
         </head>
         <body>
-          ${allContent || '<div class="header"><div class="shop-name">No delivered orders found for this week</div></div>'}
+          ${allContent || '<div class="header"><div class="shop-name">No delivered orders found for the selected date range</div></div>'}
           
           <script>
             window.onload = function() {
@@ -862,6 +877,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     `);
     
     printWindow.document.close();
+    setIsPrintDialogOpen(false);
   };
 
   const shopsWithBudgets = shops.map(shop => {
@@ -958,25 +974,89 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <p className="text-muted-foreground">{getFilterDescription()}</p>
         </div>
         <div className="flex gap-2">
-          {selectedShop === "All" ? (
-            <Button 
-              variant="outline" 
-              onClick={printAllShopsWeeklyDelivery}
-              disabled={shops.every(shop => getWeeklyDeliveredOrders(shop).length === 0)}
-            >
-              <Printer className="mr-2 h-4 w-4" />
-              Print All Weekly Delivery Lists
-            </Button>
-          ) : (
-            <Button 
-              variant="outline" 
-              onClick={() => printWeeklyDeliveryList(selectedShop)}
-              disabled={getWeeklyDeliveredOrders(selectedShop).length === 0}
-            >
-              <Printer className="mr-2 h-4 w-4" />
-              Print Weekly Delivery List
-            </Button>
-          )}
+          <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Printer className="mr-2 h-4 w-4" />
+                Print Delivery List
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Print Delivery List</DialogTitle>
+                <DialogDescription>
+                  Select the date range for the delivery list you want to print
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="printDateFrom">From Date</Label>
+                  <Input
+                    id="printDateFrom"
+                    type="date"
+                    value={printDateFrom}
+                    onChange={(e) => setPrintDateFrom(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="printDateTo">To Date</Label>
+                  <Input
+                    id="printDateTo"
+                    type="date"
+                    value={printDateTo}
+                    onChange={(e) => setPrintDateTo(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setPrintDateFrom(previousWeekRange.start);
+                      setPrintDateTo(previousWeekRange.end);
+                    }}
+                    className="flex-1"
+                  >
+                    Last Week
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setPrintDateFrom(currentWeekStart);
+                      setPrintDateTo(currentWeekEnd);
+                    }}
+                    className="flex-1"
+                  >
+                    This Week
+                  </Button>
+                </div>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsPrintDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (!printDateFrom || !printDateTo) {
+                        toast.error("Please select both start and end dates");
+                        return;
+                      }
+                      if (selectedShop === "All") {
+                        printAllShopsDeliveryList(printDateFrom, printDateTo);
+                      } else {
+                        printDeliveryList(selectedShop, printDateFrom, printDateTo);
+                      }
+                    }}
+                    disabled={!printDateFrom || !printDateTo}
+                  >
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
           
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
