@@ -92,6 +92,23 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const currentWeekStart = currentWeekRange.start;
   const currentWeekEnd = currentWeekRange.end;
 
+  // Get current period from today to end of current week (Sunday)
+  const getCurrentPeriodRange = () => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    
+    const sunday = new Date(currentWeekRange.end);
+    sunday.setHours(23, 59, 59, 999);
+    
+    return {
+      start: start.toISOString().split('T')[0],
+      end: sunday.toISOString().split('T')[0]
+    };
+  };
+
+  const currentPeriodRange = getCurrentPeriodRange();
+
   // Get previous week's start and end dates (Monday to Sunday)
   const getPreviousWeekRange = () => {
     const currentRange = getCurrentWeekRange();
@@ -258,10 +275,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
 
     if (showCurrentWeekOnly) {
       const orderDate = new Date(order.order_date);
-      const weekStart = new Date(currentWeekStart);
-      const weekEnd = new Date(currentWeekEnd);
+      const periodStart = new Date(currentPeriodRange.start);
+      const periodEnd = new Date(currentPeriodRange.end);
       
-      if (orderDate < weekStart || orderDate > weekEnd) {
+      // Show orders from today until end of current week (Sunday)
+      if (orderDate < periodStart || orderDate > periodEnd) {
         return false;
       }
     }
@@ -938,11 +956,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const getFilterDescription = () => {
     switch (activeFilter) {
       case 'current-week-orders':
-        return `Showing all orders placed this week (${currentWeekStart} to ${currentWeekEnd})`;
+        return `Showing orders placed from today (${currentPeriodRange.start}) to end of week (${currentPeriodRange.end})`;
       case 'delivered-this-week':
-        return `Showing orders delivered this week (${currentWeekStart} to ${currentWeekEnd})`;
+        return `Showing orders delivered from today (${currentPeriodRange.start}) to end of week (${currentPeriodRange.end})`;
       case 'remaining-orders':
-        return `Showing pending orders from this week (${currentWeekStart} to ${currentWeekEnd})`;
+        return `Showing pending orders from today (${currentPeriodRange.start}) to end of week (${currentPeriodRange.end})`;
       case 'previous-week-delivered':
         return `Showing previous week orders delivered (${previousWeekRange.start} to ${previousWeekRange.end})`;
       case 'total-delivered':
@@ -1236,7 +1254,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Dates</SelectItem>
-                  <SelectItem value="current">Current Week Only (Mon-Sun)</SelectItem>
+                  <SelectItem value="current">From Today to Sunday</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1270,7 +1288,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               )}
               {showCurrentWeekOnly && (
                 <Badge variant="secondary" className="flex items-center gap-1">
-                  Current Week Only (Mon-Sun)
+                  From Today to Sunday
                   <button onClick={() => setShowCurrentWeekOnly(false)} className="ml-1 hover:text-destructive">
                     ×
                   </button>
