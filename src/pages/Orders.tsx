@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Shop, OrderStatus } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2, Search, ArrowUpDown, Printer, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ArrowUpDown, Printer, Archive } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -25,7 +25,6 @@ interface OrdersProps {
 type Order = Tables<'orders'>;
 type Supply = Tables<'supplies'>;
 type WeeklyBudget = Tables<'weekly_budgets'>;
-
 type SortField = 'supply_name' | 'order_date' | 'delivery_date' | 'order_amount' | 'amount_delivered';
 type SortDirection = 'asc' | 'desc';
 
@@ -37,22 +36,28 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  
+  const [archiving, setArchiving] = useState(false);
+
   const [sortField, setSortField] = useState<SortField>('order_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [showCurrentWeekOnly, setShowCurrentWeekOnly] = useState(false);
+  const [showCurrentWeekOnly, setShowCurrentWeekOnly] = useState(true); // Default: this week
   const [activeFilter, setActiveFilter] = useState<string>('');
-  
+
   const [printDateFrom, setPrintDateFrom] = useState('');
   const [printDateTo, setPrintDateTo] = useState('');
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
-  
+
+  // Admin cleanup states
+  const [deleteBeforeDate, setDeleteBeforeDate] = useState('2024-01-27');
+  const [customDate, setCustomDate] = useState('');
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+
   const today = new Date().toISOString().split('T')[0];
   const location = useLocation();
-  
+
   const [formData, setFormData] = useState({
     supply_id: "",
     order_date: today,
@@ -65,95 +70,75 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     notes: "",
   });
 
+  // === WEEK LOGIC: Monday to Sunday ===
   const getCurrentWeekRange = () => {
     const now = new Date();
     const day = now.getDay();
-    
+    const diffToMonday = day === 0 ? -6 : 1 - day; // Sunday = 0 → go back 6
+
     const monday = new Date(now);
-    const diffToMonday = day === 0 ? -6 : 1 - day;
     monday.setDate(now.getDate() + diffToMonday);
     monday.setHours(0, 0, 0, 0);
-    
+
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
-    
+
     return {
       start: monday.toISOString().split('T')[0],
-      end: sunday.toISOString().split('T')[0]
+      end: sunday.toISOString().split('T')[0],
+      startDate: monday,
+      endDate: sunday,
     };
   };
 
-  const currentWeekRange = getCurrentWeekRange();
-  const currentWeekStart = currentWeekRange.start;
-  const currentWeekEnd = currentWeekRange.end;
-
-  const getCurrentPeriodRange = () => {
-    const now = new Date();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    
-    const sunday = new Date(currentWeekRange.end);
-    sunday.setHours(23, 59, 59, 999);
-    
-    return {
-      start: start.toISOString().split('T')[0],
-      end: sunday.toISOString().split('T')[0]
-    };
-  };
-
-  const currentPeriodRange = getCurrentPeriodRange();
+  const currentWeek = useMemo(() => getCurrentWeekRange(), []);
+  const currentWeekStart = currentWeek.start;
+  const currentWeekEnd = currentWeek.end;
 
   const getPreviousWeekRange = () => {
-    const currentRange = getCurrentWeekRange();
-    const monday = new Date(currentRange.start);
-    const sunday = new Date(currentRange.end);
-    
+    const monday = new Date(currentWeek.startDate);
     monday.setDate(monday.getDate() - 7);
-    sunday.setDate(sunday.getDate() - 7);
-    
+    const sunday = new Date(monday);
+    sunday.setDate(sunday.getDate() + 6);
     return {
       start: monday.toISOString().split('T')[0],
-      end: sunday.toISOString().split('T')[0]
+      end: sunday.toISOString().split('T')[0],
     };
   };
 
-  const previousWeekRange = getPreviousWeekRange();
+  const previousWeekRange = useMemo(() => getPreviousWeekRange(), [currentWeek]);
 
   useEffect(() => {
-    if (previousWeekRange.start && previousWeekRange.end) {
-      setPrintDateFrom(previousWeekRange.start);
-      setPrintDateTo(previousWeekRange.end);
-    }
+    setPrintDateFrom(previousWeekRange.start);
+    setPrintDateTo(previousWeekRange.end);
   }, [previousWeekRange]);
 
+  // === FETCH DATA ===
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      const [ordersResponse, suppliesResponse, budgetsResponse] = await Promise.all([
+      const [ordersRes, suppliesRes, budgetsRes] = await Promise.all([
         supabase.from('orders').select('*').order('created_at', { ascending: false }),
         supabase.from('supplies').select('*'),
         supabase.from('weekly_budgets').select('*')
       ]);
 
-      if (ordersResponse.error) throw ordersResponse.error;
-      if (suppliesResponse.error) throw suppliesResponse.error;
-      if (budgetsResponse.error) throw budgetsResponse.error;
+      if (ordersRes.error) throw ordersRes.error;
+      if (suppliesRes.error) throw suppliesRes.error;
+      if (budgetsRes.error) throw budgetsRes.error;
 
-      setOrders(ordersResponse.data || []);
-      setSupplies(suppliesResponse.data || []);
-      setWeeklyBudgets(budgetsResponse.data || []);
+      setOrders(ordersRes.data || []);
+      setSupplies(suppliesRes.data || []);
+      setWeeklyBudgets(budgetsRes.data || []);
 
-      const uniqueShops = [...new Set(suppliesResponse.data?.map(s => s.shop).filter(Boolean) || [])] as string[];
+      const uniqueShops = [...new Set(suppliesRes.data?.map(s => s.shop).filter(Boolean) || [])] as string[];
       setShops(uniqueShops);
-      
+
       if (uniqueShops.length > 0 && !formData.shop) {
         setFormData(prev => ({ ...prev, shop: uniqueShops[0] }));
       }
-
     } catch (error: any) {
-      console.error('Error fetching data:', error);
       toast.error(`Failed to load data: ${error.message}`);
     } finally {
       setLoading(false);
@@ -164,154 +149,405 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    const navigationState = location.state as {
-      filter?: string;
-      currentWeekStart?: string;
-      previousWeekRange?: any;
-    } | null;
+  // === ARCHIVE FUNCTIONALITY ===
+  const archiveDeliveredOrders = async () => {
+    if (!confirm("Are you sure you want to archive all delivered orders from last week? This will move them to the delivered orders table and start a fresh week.")) {
+      return;
+    }
 
-    if (navigationState?.filter) {
-      setActiveFilter(navigationState.filter);
-      
-      switch (navigationState.filter) {
-        case 'current-week-orders':
-          setShowCurrentWeekOnly(true);
-          setSearchQuery('');
-          setDateFrom('');
-          setDateTo('');
-          break;
-          
-        case 'delivered-this-week':
-          setShowCurrentWeekOnly(true);
-          setSearchQuery('status:Delivered');
-          setDateFrom('');
-          setDateTo('');
-          break;
-          
-        case 'remaining-orders':
-          setShowCurrentWeekOnly(true);
-          setSearchQuery('status:Pending,Partial');
-          setDateFrom('');
-          setDateTo('');
-          break;
-          
-        case 'previous-week-delivered':
-          setShowCurrentWeekOnly(false);
-          setSearchQuery('status:Delivered');
-          setDateFrom(previousWeekRange.start);
-          setDateTo(previousWeekRange.end);
-          break;
-          
-        case 'total-delivered':
-          setShowCurrentWeekOnly(false);
-          setSearchQuery('status:Delivered');
-          setDateFrom('');
-          setDateTo('');
-          break;
-          
-        case 'still-awaiting':
-          setShowCurrentWeekOnly(false);
-          setSearchQuery('status:Pending,Partial');
-          setDateFrom('');
-          setDateTo('');
-          break;
-          
-        case 'pending':
-          setShowCurrentWeekOnly(false);
-          setSearchQuery('status:Pending');
-          setDateFrom('');
-          setDateTo('');
-          break;
-          
-        case 'budget':
-        case 'budget-savings':
-        case 'available-budget':
-          setShowCurrentWeekOnly(true);
-          setSearchQuery('');
-          setDateFrom('');
-          setDateTo('');
-          break;
-          
-        default:
-          break;
+    try {
+      setArchiving(true);
+
+      // First, check if the delivered_orders table exists
+      const { data: tableExists, error: checkError } = await supabase
+        .from('delivered_orders')
+        .select('id')
+        .limit(1);
+
+      if (checkError) {
+        toast.error("Archive functionality not available yet. The delivered_orders table needs to be created first.");
+        return;
       }
-    }
-  }, [location.state]);
 
-  const filteredOrders = orders.filter(order => {
-    if (selectedShop !== "All" && order.shop !== selectedShop) {
-      return false;
-    }
+      // Get all delivered orders from previous week
+      const previousWeekOrders = orders.filter(order => {
+        const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
+        const weekStart = new Date(previousWeekRange.start);
+        const weekEnd = new Date(previousWeekRange.end);
+        
+        return order.status === "Delivered" &&
+               deliveryDate &&
+               deliveryDate >= weekStart &&
+               deliveryDate <= weekEnd;
+      });
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchesName = order.supply_name?.toLowerCase().includes(query);
-      const matchesOrderedBy = order.ordered_by?.toLowerCase().includes(query);
-      const matchesContact = order.contact_person?.toLowerCase().includes(query);
-      const matchesStatus = query.includes('status:') && 
-        (query.includes(order.status?.toLowerCase() || ''));
-      
-      if (!matchesName && !matchesOrderedBy && !matchesContact && !matchesStatus) {
-        return false;
+      if (previousWeekOrders.length === 0) {
+        toast.info("No delivered orders found from last week to archive.");
+        return;
       }
-    }
 
-    if (dateFrom && order.order_date < dateFrom) {
-      return false;
-    }
-    if (dateTo && order.order_date > dateTo) {
-      return false;
-    }
+      // Insert into delivered_orders table
+      const { error: insertError } = await supabase
+        .from('delivered_orders')
+        .insert(previousWeekOrders.map(order => ({
+          original_order_id: order.id,
+          supply_id: order.supply_id,
+          supply_name: order.supply_name,
+          order_date: order.order_date,
+          ordered_by: order.ordered_by,
+          contact_person: order.contact_person,
+          order_amount: order.order_amount,
+          amount_delivered: order.amount_delivered,
+          delivery_date: order.delivery_date,
+          shop: order.shop,
+          notes: order.notes,
+          status: order.status,
+          archived_at: new Date().toISOString()
+        })));
 
-    if (showCurrentWeekOnly) {
-      const orderDate = new Date(order.order_date);
-      const periodStart = new Date(currentPeriodRange.start);
-      const periodEnd = new Date(currentPeriodRange.end);
-      
-      if (orderDate < periodStart || orderDate > periodEnd) {
-        return false;
-      }
-    }
+      if (insertError) throw insertError;
 
-    return true;
-  });
+      // Delete from orders table
+      const orderIds = previousWeekOrders.map(order => order.id);
+      const { error: deleteError } = await supabase
+        .from('orders')
+        .delete()
+        .in('id', orderIds);
 
-  const sortedOrders = [...filteredOrders].sort((a, b) => {
-    let aValue: any = a[sortField];
-    let bValue: any = b[sortField];
+      if (deleteError) throw deleteError;
 
-    if (aValue === null || aValue === undefined) aValue = '';
-    if (bValue === null || bValue === undefined) bValue = '';
+      toast.success(`Successfully archived ${previousWeekOrders.length} delivered orders from last week.`);
+      await fetchData();
 
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      aValue = aValue.toLowerCase();
-      bValue = bValue.toLowerCase();
-    }
-
-    if (sortField.includes('date')) {
-      aValue = new Date(aValue || 0).getTime();
-      bValue = new Date(bValue || 0).getTime();
-    }
-
-    if (aValue < bValue) {
-      return sortDirection === 'asc' ? -1 : 1;
-    }
-    if (aValue > bValue) {
-      return sortDirection === 'asc' ? 1 : -1;
-    }
-    return 0;
-  });
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
+    } catch (error: any) {
+      console.error('Error archiving orders:', error);
+      toast.error(`Failed to archive orders: ${error.message}`);
+    } finally {
+      setArchiving(false);
     }
   };
 
+  // === ADMIN CLEANUP FUNCTION ===
+  const handleAdminCleanup = async () => {
+    if (!deleteBeforeDate) {
+      toast.error("Please select a date");
+      return;
+    }
+
+    const confirmMessage = `🚨 DANGEROUS ACTION 🚨\n\nThis will PERMANENTLY DELETE:\n• All orders before ${deleteBeforeDate}\n• All cash-ups before ${deleteBeforeDate}\n• All income records before ${deleteBeforeDate}\n\nThis cannot be undone!\n\nType "DELETE ${deleteBeforeDate}" to confirm:`;
+    
+    const userInput = prompt(confirmMessage);
+    if (userInput !== `DELETE ${deleteBeforeDate}`) {
+      toast.error("Cleanup cancelled - confirmation text did not match");
+      return;
+    }
+
+    try {
+      setCleanupLoading(true);
+      
+      // Delete orders before the specified date
+      const { error: ordersError, count: ordersDeleted } = await supabase
+        .from('orders')
+        .delete()
+        .lt('order_date', deleteBeforeDate)
+        .select('*', { count: 'exact' });
+
+      if (ordersError) throw ordersError;
+
+      // Delete cash-ups before the specified date
+      let cashupsDeleted = 0;
+      try {
+        const { error: cashupsError, count: cashupsCount } = await supabase
+          .from('cash_ups')
+          .delete()
+          .lt('created_at', deleteBeforeDate)
+          .select('*', { count: 'exact' });
+
+        if (cashupsError && !cashupsError.message.includes('does not exist')) {
+          throw cashupsError;
+        }
+        cashupsDeleted = cashupsCount || 0;
+      } catch (cashupsError) {
+        console.log('Cash-ups table might not exist, continuing...');
+      }
+
+      // Delete income records before the specified date
+      let incomeRecordsDeleted = 0;
+      try {
+        const { error: incomeError, count: incomeCount } = await supabase
+          .from('income_records')
+          .delete()
+          .lt('created_at', deleteBeforeDate)
+          .select('*', { count: 'exact' });
+
+        if (incomeError && !incomeError.message.includes('does not exist')) {
+          throw incomeError;
+        }
+        incomeRecordsDeleted = incomeCount || 0;
+      } catch (incomeError) {
+        console.log('Income records table might not exist, continuing...');
+      }
+
+      toast.success(`✅ Cleanup completed!\n• Orders deleted: ${ordersDeleted || 0}\n• Cash-ups deleted: ${cashupsDeleted}\n• Income records deleted: ${incomeRecordsDeleted}`);
+      
+      // Refresh the data
+      await fetchData();
+
+    } catch (error: any) {
+      console.error('Error during cleanup:', error);
+      toast.error(`Cleanup failed: ${error.message}`);
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
+  // === NAVIGATION FILTERS ===
+  useEffect(() => {
+    const state = location.state as { filter?: string } | null;
+    if (!state?.filter) return;
+
+    setActiveFilter(state.filter);
+    setShowCurrentWeekOnly(true);
+    setSearchQuery('');
+    setDateFrom('');
+    setDateTo('');
+
+    switch (state.filter) {
+      case 'current-week-orders':
+        setShowCurrentWeekOnly(true);
+        break;
+      case 'delivered-this-week':
+        setShowCurrentWeekOnly(true);
+        setSearchQuery('status:Delivered');
+        break;
+      case 'remaining-orders':
+        setShowCurrentWeekOnly(true);
+        setSearchQuery('status:Pending,Partial');
+        break;
+      case 'previous-week-delivered':
+        setShowCurrentWeekOnly(false);
+        setSearchQuery('status:Delivered');
+        setDateFrom(previousWeekRange.start);
+        setDateTo(previousWeekRange.end);
+        break;
+      default:
+        break;
+    }
+  }, [location.state, previousWeekRange]);
+
+  // === FILTERED & SORTED ORDERS ===
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      if (selectedShop !== "All" && order.shop !== selectedShop) return false;
+
+      // Search
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matches = [
+          order.supply_name?.toLowerCase().includes(q),
+          order.ordered_by?.toLowerCase().includes(q),
+          order.contact_person?.toLowerCase().includes(q),
+          q.includes('status:') && q.includes(order.status?.toLowerCase() || '')
+        ].some(Boolean);
+        if (!matches) return false;
+      }
+
+      // Date range
+      if (dateFrom && order.order_date < dateFrom) return false;
+      if (dateTo && order.order_date > dateTo) return false;
+
+      // Current week filter (based on order_date)
+      if (showCurrentWeekOnly) {
+        const orderDate = new Date(order.order_date);
+        if (orderDate < currentWeek.startDate || orderDate > currentWeek.endDate) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [orders, selectedShop, searchQuery, dateFrom, dateTo, showCurrentWeekOnly, currentWeek]);
+
+  const sortedOrders = useMemo(() => {
+    return [...filteredOrders].sort((a, b) => {
+      let aVal: any = a[sortField];
+      let bVal: any = b[sortField];
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+
+      if (sortField.includes('date')) {
+        aVal = new Date(aVal || 0).getTime();
+        bVal = new Date(bVal || 0).getTime();
+      }
+
+      return (aVal < bVal ? -1 : 1) * (sortDirection === 'asc' ? 1 : -1);
+    });
+  }, [filteredOrders, sortField, sortDirection]);
+
+  // === BUDGET CALCULATIONS (Delivered this week) ===
+  const shopsWithBudgets = useMemo(() => {
+    return shops.map(shop => {
+      const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === currentWeekStart);
+      const weekOrders = orders.filter(o => {
+        const orderDate = new Date(o.order_date);
+        return o.shop === shop &&
+               orderDate >= currentWeek.startDate &&
+               orderDate <= currentWeek.endDate;
+      });
+
+      const totalOrdered = weekOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0);
+      const totalDelivered = weekOrders.reduce((sum, o) => sum + (o.amount_delivered || 0), 0);
+      const budgetAmount = budget?.budget_amount || 0;
+      const remainingBudget = budgetAmount - totalDelivered; // Based on delivered
+
+      return {
+        shop,
+        budget,
+        orders: weekOrders,
+        totalOrdered,
+        totalDelivered,
+        remainingBudget,
+        budgetAmount,
+      };
+    });
+  }, [shops, weeklyBudgets, orders, currentWeekStart, currentWeek]);
+
+  // === PRINT DELIVERY LIST (by delivery date) ===
+  const getDeliveredByDeliveryDate = (shopName: string, start: string, end: string) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    endDate.setHours(23, 59, 59, 999);
+
+    return orders.filter(o => {
+      if (o.shop !== shopName || o.status !== "Delivered") return false;
+      const delDate = o.delivery_date ? new Date(o.delivery_date) : null;
+      return delDate && delDate >= startDate && delDate <= endDate;
+    });
+  };
+
+  const printDeliveryList = (shopName: string, start: string, end: string) => {
+    const delivered = getDeliveredByDeliveryDate(shopName, start, end);
+    const total = delivered.reduce((s, o) => s + (o.amount_delivered || 0), 0);
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return toast.error("Allow pop-ups to print");
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Delivery List - ${shopName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>${shopName} - Delivery List</h2>
+            <p>Period: ${start} to ${end}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Supply</th>
+                <th>Order Date</th>
+                <th>Delivery Date</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${delivered.map(order => `
+                <tr>
+                  <td>${order.supply_name}</td>
+                  <td>${order.order_date}</td>
+                  <td>${order.delivery_date}</td>
+                  <td>${formatCurrency(order.amount_delivered || 0)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div style="margin-top: 20px; font-weight: bold;">
+            Total: ${formatCurrency(total)}
+          </div>
+          <script>window.print(); setTimeout(() => window.close(), 500);</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    setIsPrintDialogOpen(false);
+  };
+
+  const printAllShopsDeliveryList = (start: string, end: string) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return toast.error("Allow pop-ups to print");
+
+    let content = '';
+    shops.forEach(shop => {
+      const delivered = getDeliveredByDeliveryDate(shop, start, end);
+      if (delivered.length > 0) {
+        const total = delivered.reduce((s, o) => s + (o.amount_delivered || 0), 0);
+        content += `
+          <div style="page-break-after: always;">
+            <div class="header">
+              <h2>${shop} - Delivery List</h2>
+              <p>Period: ${start} to ${end}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Supply</th>
+                  <th>Order Date</th>
+                  <th>Delivery Date</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${delivered.map(order => `
+                  <tr>
+                    <td>${order.supply_name}</td>
+                    <td>${order.order_date}</td>
+                    <td>${order.delivery_date}</td>
+                    <td>${formatCurrency(order.amount_delivered || 0)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div style="margin-top: 20px; font-weight: bold;">
+              Total: ${formatCurrency(total)}
+            </div>
+          </div>
+        `;
+      }
+    });
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>All Shops Delivery List</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; }
+          </style>
+        </head>
+        <body>${content}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    setIsPrintDialogOpen(false);
+  };
+
+  // === ORDER ACTIONS ===
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -426,492 +662,14 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     });
   };
 
-  const handleBudgetUpdate = async () => {
-    await fetchData();
-  };
-
-  const getDeliveredOrdersByDateRange = (shopName: string, startDate: string, endDate: string) => {
-    return orders.filter(order => {
-      const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
-      const rangeStart = new Date(startDate);
-      const rangeEnd = new Date(endDate);
-      rangeEnd.setHours(23, 59, 59, 999);
-      
-      return order.shop === shopName && 
-             order.status === "Delivered" &&
-             deliveryDate && 
-             deliveryDate >= rangeStart && 
-             deliveryDate <= rangeEnd;
-    });
-  };
-
-  const printDeliveryList = (shopName: string, startDate: string, endDate: string) => {
-    const deliveredOrders = getDeliveredOrdersByDateRange(shopName, startDate, endDate);
-    
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error("Please allow pop-ups to print the delivery list");
-      return;
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
     }
-
-    const totalAmount = deliveredOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Delivery List - ${shopName}</title>
-          <style>
-            @page {
-              size: A4;
-              margin: 10mm;
-            }
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 0;
-              padding: 0;
-              color: #333;
-              font-size: 11px;
-            }
-            .header { 
-              text-align: center; 
-              margin-bottom: 12px;
-              border-bottom: 2px solid #333;
-              padding-bottom: 8px;
-            }
-            .shop-name { 
-              font-size: 18px; 
-              font-weight: bold;
-              margin-bottom: 4px;
-            }
-            .period { 
-              font-size: 10px;
-              color: #666;
-              line-height: 1.3;
-            }
-            .subtitle {
-              font-size: 9px;
-              color: #888;
-              margin-bottom: 8px;
-              text-align: center;
-            }
-            table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin-bottom: 12px;
-              font-size: 10px;
-            }
-            th, td { 
-              border: 1px solid #ddd; 
-              padding: 6px 8px; 
-              text-align: left; 
-            }
-            th { 
-              background-color: #f5f5f5; 
-              font-weight: bold;
-              font-size: 10px;
-            }
-            .total-row { 
-              background-color: #f0f0f0; 
-              font-weight: bold; 
-            }
-            .signature-section {
-              display: flex;
-              justify-content: space-between;
-              margin-top: 8px;
-              padding: 6px;
-              border: 1px solid #ddd;
-            }
-            .signature-line {
-              border-top: 1px solid #333;
-              width: 120px;
-              margin-top: 20px;
-            }
-            .signature-label {
-              margin-top: 3px;
-              font-size: 9px;
-              text-align: center;
-            }
-            .invoice-row {
-              page-break-inside: avoid;
-            }
-            .signature-container {
-              display: flex;
-              justify-content: space-between;
-              gap: 10px;
-            }
-            .signature-container > div {
-              flex: 1;
-            }
-            .invoice-number {
-              height: 16px;
-              border-bottom: 1px solid #333;
-              min-width: 80px;
-              display: inline-block;
-            }
-            .final-auth {
-              margin-top: 12px;
-              padding: 10px;
-              border: 1px solid #333;
-              background-color: #f9f9f9;
-            }
-            .final-auth-title {
-              text-align: center;
-              font-weight: bold;
-              margin-bottom: 8px;
-              font-size: 11px;
-            }
-            .footer-note {
-              margin-top: 10px;
-              font-size: 9px;
-              color: #666;
-              text-align: center;
-              line-height: 1.4;
-            }
-            @media print {
-              body { margin: 0; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="shop-name">${shopName} - Delivery List</div>
-            <div class="period">Delivery Period: ${startDate} to ${endDate}</div>
-            <div class="subtitle">Includes all orders delivered in the selected date range (regardless of order date)</div>
-            <div class="period">Generated: ${new Date().toLocaleDateString()}</div>
-          </div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 35%;">Supply Name</th>
-                <th style="width: 12%;">Order Date</th>
-                <th style="width: 12%;">Delivery Date</th>
-                <th style="width: 15%;">Amount (ZAR)</th>
-                <th style="width: 15%;">Invoice #</th>
-                <th style="width: 23%;">Signatures</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${deliveredOrders.map(order => `
-                <tr class="invoice-row">
-                  <td>${order.supply_name || 'N/A'}</td>
-                  <td>${order.order_date || 'N/A'}</td>
-                  <td>${order.delivery_date || 'N/A'}</td>
-                  <td>${formatCurrency(order.amount_delivered || 0)}</td>
-                  <td><div class="invoice-number"></div></td>
-                  <td>
-                    <div class="signature-container">
-                      <div>
-                        <div class="signature-line"></div>
-                        <div class="signature-label">Handed By</div>
-                      </div>
-                      <div>
-                        <div class="signature-line"></div>
-                        <div class="signature-label">Received By</div>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              `).join('')}
-              <tr class="total-row">
-                <td><strong>Total Amount</strong></td>
-                <td></td>
-                <td></td>
-                <td><strong>${formatCurrency(totalAmount)}</strong></td>
-                <td></td>
-                <td></td>
-              </tr>
-            </tbody>
-          </table>
-          
-          <div class="final-auth">
-            <div class="final-auth-title">FINAL AUTHORIZATION</div>
-            <div class="signature-section">
-              <div>
-                <div class="signature-line" style="width: 180px;"></div>
-                <div class="signature-label">Manager/Authorized Signatory</div>
-              </div>
-              <div>
-                <div class="signature-line" style="width: 180px;"></div>
-                <div class="signature-label">Accounting Department</div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="footer-note">
-            For accounting department payment processing | All invoices must be signed by both parties | Invoice numbers filled manually during processing
-          </div>
-          
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(() => window.close(), 500);
-            }
-          </script>
-        </body>
-      </html>
-    `);
-    
-    printWindow.document.close();
-    setIsPrintDialogOpen(false);
   };
-
-  const printAllShopsDeliveryList = (startDate: string, endDate: string) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error("Please allow pop-ups to print the delivery lists");
-      return;
-    }
-
-    let allContent = '';
-    
-    shops.forEach(shopName => {
-      const deliveredOrders = getDeliveredOrdersByDateRange(shopName, startDate, endDate);
-      if (deliveredOrders.length === 0) return;
-      
-      const totalAmount = deliveredOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
-
-      const shopContent = `
-        <div style="page-break-after: always;">
-          <div class="header">
-            <div class="shop-name">${shopName} - Delivery List</div>
-            <div class="period">Delivery Period: ${startDate} to ${endDate}</div>
-            <div class="subtitle">Includes all orders delivered in the selected date range (regardless of order date)</div>
-            <div class="period">Generated: ${new Date().toLocaleDateString()}</div>
-          </div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 35%;">Supply Name</th>
-                <th style="width: 12%;">Order Date</th>
-                <th style="width: 12%;">Delivery Date</th>
-                <th style="width: 15%;">Amount (ZAR)</th>
-                <th style="width: 15%;">Invoice #</th>
-                <th style="width: 23%;">Signatures</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${deliveredOrders.map(order => `
-                <tr class="invoice-row">
-                  <td>${order.supply_name || 'N/A'}</td>
-                  <td>${order.order_date || 'N/A'}</td>
-                  <td>${order.delivery_date || 'N/A'}</td>
-                  <td>${formatCurrency(order.amount_delivered || 0)}</td>
-                  <td><div class="invoice-number"></div></td>
-                  <td>
-                    <div class="signature-container">
-                      <div>
-                        <div class="signature-line"></div>
-                        <div class="signature-label">Handed By</div>
-                      </div>
-                      <div>
-                        <div class="signature-line"></div>
-                        <div class="signature-label">Received By</div>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              `).join('')}
-              <tr class="total-row">
-                <td><strong>Total Amount</strong></td>
-                <td></td>
-                <td></td>
-                <td><strong>${formatCurrency(totalAmount)}</strong></td>
-                <td></td>
-                <td></td>
-              </tr>
-            </tbody>
-          </table>
-          
-          <div class="final-auth">
-            <div class="final-auth-title">FINAL AUTHORIZATION</div>
-            <div class="signature-section">
-              <div>
-                <div class="signature-line" style="width: 180px;"></div>
-                <div class="signature-label">Manager/Authorized Signatory</div>
-              </div>
-              <div>
-                <div class="signature-line" style="width: 180px;"></div>
-                <div class="signature-label">Accounting Department</div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="footer-note">
-            For accounting department payment processing | All invoices must be signed by both parties | Invoice numbers filled manually during processing
-          </div>
-        </div>
-      `;
-      
-      allContent += shopContent;
-    });
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>All Shops Delivery Lists</title>
-          <style>
-            @page {
-              size: A4;
-              margin: 10mm;
-            }
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 0;
-              padding: 0;
-              color: #333;
-              font-size: 11px;
-            }
-            .header { 
-              text-align: center; 
-              margin-bottom: 12px;
-              border-bottom: 2px solid #333;
-              padding-bottom: 8px;
-            }
-            .shop-name { 
-              font-size: 18px; 
-              font-weight: bold;
-              margin-bottom: 4px;
-            }
-            .period { 
-              font-size: 10px;
-              color: #666;
-              line-height: 1.3;
-            }
-            .subtitle {
-              font-size: 9px;
-              color: #888;
-              margin-bottom: 8px;
-              text-align: center;
-            }
-            table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin-bottom: 12px;
-              font-size: 10px;
-            }
-            th, td { 
-              border: 1px solid #ddd; 
-              padding: 6px 8px; 
-              text-align: left; 
-            }
-            th { 
-              background-color: #f5f5f5; 
-              font-weight: bold;
-              font-size: 10px;
-            }
-            .total-row { 
-              background-color: #f0f0f0; 
-              font-weight: bold; 
-            }
-            .signature-section {
-              display: flex;
-              justify-content: space-between;
-              margin-top: 8px;
-              padding: 6px;
-              border: 1px solid #ddd;
-            }
-            .signature-line {
-              border-top: 1px solid #333;
-              width: 120px;
-              margin-top: 20px;
-            }
-            .signature-label {
-              margin-top: 3px;
-              font-size: 9px;
-              text-align: center;
-            }
-            .invoice-row {
-              page-break-inside: avoid;
-            }
-            .signature-container {
-              display: flex;
-              justify-content: space-between;
-              gap: 10px;
-            }
-            .signature-container > div {
-              flex: 1;
-            }
-            .invoice-number {
-              height: 16px;
-              border-bottom: 1px solid #333;
-              min-width: 80px;
-              display: inline-block;
-            }
-            .final-auth {
-              margin-top: 12px;
-              padding: 10px;
-              border: 1px solid #333;
-              background-color: #f9f9f9;
-            }
-            .final-auth-title {
-              text-align: center;
-              font-weight: bold;
-              margin-bottom: 8px;
-              font-size: 11px;
-            }
-            .footer-note {
-              margin-top: 10px;
-              font-size: 9px;
-              color: #666;
-              text-align: center;
-              line-height: 1.4;
-            }
-            @media print {
-              body { margin: 0; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          ${allContent || '<div class="header"><div class="shop-name">No delivered orders found for the selected date range</div></div>'}
-          
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(() => window.close(), 500);
-            }
-          </script>
-        </body>
-      </html>
-    `);
-    
-    printWindow.document.close();
-    setIsPrintDialogOpen(false);
-  };
-
-  const shopsWithBudgets = shops.map(shop => {
-    const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === currentWeekStart);
-    const shopWeekOrders = orders.filter(o => {
-      const orderDate = new Date(o.order_date);
-      return o.shop === shop && orderDate >= new Date(currentWeekStart) && orderDate <= new Date(currentWeekEnd);
-    });
-
-    const totalOrdered = shopWeekOrders.reduce((sum, order) => sum + (order.order_amount || 0), 0);
-    const totalDelivered = shopWeekOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
-    const budgetAmount = budget?.budget_amount || 0;
-    const remainingIfAllDelivered = budgetAmount - totalOrdered;
-    const remainingBasedOnDelivered = budgetAmount - totalDelivered;
-
-    return {
-      shop,
-      budget,
-      orders: shopWeekOrders,
-      totalOrdered,
-      totalDelivered,
-      remainingIfAllDelivered,
-      remainingBasedOnDelivered,
-      budgetAmount
-    };
-  });
-
-  const pendingOrders = sortedOrders.filter(o => o.status === "Pending");
-  const partialOrders = sortedOrders.filter(o => o.status === "Partial");
-  const deliveredOrders = sortedOrders.filter(o => o.status === "Delivered");
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "secondary" | "default" | "destructive"> = {
@@ -942,76 +700,75 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const getFilterDescription = () => {
     switch (activeFilter) {
       case 'current-week-orders':
-        return `Showing orders placed from today (${currentPeriodRange.start}) to end of week (${currentPeriodRange.end})`;
+        return `Showing orders placed this week`;
       case 'delivered-this-week':
-        return `Showing orders delivered from today (${currentPeriodRange.start}) to end of week (${currentPeriodRange.end})`;
+        return `Showing orders delivered this week`;
       case 'remaining-orders':
-        return `Showing pending orders from today (${currentPeriodRange.start}) to end of week (${currentPeriodRange.end})`;
+        return `Showing pending orders this week`;
       case 'previous-week-delivered':
-        return `Showing previous week orders delivered (${previousWeekRange.start} to ${previousWeekRange.end})`;
-      case 'total-delivered':
-        return 'Showing all delivered orders';
-      case 'still-awaiting':
-        return 'Showing all orders awaiting delivery';
-      case 'pending':
-        return 'Showing all pending orders';
-      case 'budget':
-        return `Showing current week orders (${currentWeekStart} to ${currentWeekEnd}) for budget overview`;
+        return `Showing previous week delivered orders`;
       default:
         return `${selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders`;
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Loading orders...</div>
-      </div>
-    );
+    return <div className="flex items-center justify-center h-64">Loading...</div>;
   }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Orders</h2>
-          <p className="text-muted-foreground">{getFilterDescription()}</p>
+          <p className="text-muted-foreground">
+            {showCurrentWeekOnly
+              ? `This week (Mon ${currentWeekStart} – Sun ${currentWeekEnd})`
+              : getFilterDescription()}
+          </p>
         </div>
         <div className="flex gap-2">
+          {/* Archive Button */}
+          <Button 
+            variant="outline" 
+            onClick={archiveDeliveredOrders}
+            disabled={archiving}
+          >
+            <Archive className="mr-2 h-4 w-4" />
+            {archiving ? "Archiving..." : "Archive Last Week"}
+          </Button>
+
+          {/* Print Button */}
           <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
-                <Printer className="mr-2 h-4 w-4" />
-                Print Delivery List
-              </Button>
+              <Button variant="outline"><Printer className="mr-2 h-4 w-4" />Print</Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Print Delivery List</DialogTitle>
                 <DialogDescription>
-                  Select the date range for the delivery list you want to print
+                  Select date range for delivery list
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="printDateFrom">From Date (Monday)</Label>
+                  <Label>From Date</Label>
                   <Input
-                    id="printDateFrom"
                     type="date"
                     value={printDateFrom}
                     onChange={(e) => setPrintDateFrom(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="printDateTo">To Date (Sunday)</Label>
+                  <Label>To Date</Label>
                   <Input
-                    id="printDateTo"
                     type="date"
                     value={printDateTo}
                     onChange={(e) => setPrintDateTo(e.target.value)}
                   />
                 </div>
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2">
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -1033,44 +790,31 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                     This Week
                   </Button>
                 </div>
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsPrintDialogOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      if (!printDateFrom || !printDateTo) {
-                        toast.error("Please select both start and end dates");
-                        return;
-                      }
-                      if (selectedShop === "All") {
-                        printAllShopsDeliveryList(printDateFrom, printDateTo);
-                      } else {
-                        printDeliveryList(selectedShop, printDateFrom, printDateTo);
-                      }
-                    }}
-                    disabled={!printDateFrom || !printDateTo}
-                  >
-                    <Printer className="mr-2 h-4 w-4" />
-                    Print
-                  </Button>
-                </div>
+                <Button
+                  onClick={() => {
+                    if (!printDateFrom || !printDateTo) {
+                      toast.error("Please select dates");
+                      return;
+                    }
+                    if (selectedShop === "All") {
+                      printAllShopsDeliveryList(printDateFrom, printDateTo);
+                    } else {
+                      printDeliveryList(selectedShop, printDateFrom, printDateTo);
+                    }
+                  }}
+                  className="w-full"
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
-          
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) resetForm();
-          }}>
+
+          {/* Create Order */}
+          <Dialog open={isDialogOpen} onOpenChange={(o) => { setIsDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Order
-              </Button>
+              <Button><Plus className="mr-2 h-4 w-4" />Create Order</Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
@@ -1192,280 +936,69 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Search & Filter</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="search">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Search by name, email, or status:"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="dateFrom">Date From</Label>
-              <Input
-                id="dateFrom"
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="dateTo">Date To</Label>
-              <Input
-                id="dateTo"
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="weekFilter">Week Filter</Label>
-              <Select value={showCurrentWeekOnly ? "current" : "all"} onValueChange={(value) => setShowCurrentWeekOnly(value === "current")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select time period" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Dates</SelectItem>
-                  <SelectItem value="current">From Today to Sunday</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          {(searchQuery || dateFrom || dateTo || showCurrentWeekOnly || activeFilter) && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {searchQuery && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  Search: "{searchQuery}"
-                  <button onClick={() => setSearchQuery('')} className="ml-1 hover:text-destructive">
-                    ×
-                  </button>
-                </Badge>
-              )}
-              {dateFrom && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  From: {dateFrom}
-                  <button onClick={() => setDateFrom('')} className="ml-1 hover:text-destructive">
-                    ×
-                  </button>
-                </Badge>
-              )}
-              {dateTo && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  To: {dateTo}
-                  <button onClick={() => setDateTo('')} className="ml-1 hover:text-destructive">
-                    ×
-                  </button>
-                </Badge>
-              )}
-              {showCurrentWeekOnly && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  From Today to Sunday
-                  <button onClick={() => setShowCurrentWeekOnly(false)} className="ml-1 hover:text-destructive">
-                    ×
-                  </button>
-                </Badge>
-              )}
-              {activeFilter && (
-                <Badge variant="default" className="flex items-center gap-1">
-                  Filter: {activeFilter.replace(/-/g, ' ')}
-                  <button onClick={() => setActiveFilter('')} className="ml-1 hover:text-destructive">
-                    ×
-                  </button>
-                </Badge>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchQuery('');
-                  setDateFrom('');
-                  setDateTo('');
-                  setShowCurrentWeekOnly(false);
-                  setActiveFilter('');
-                }}
-              >
-                Clear All
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
+      {/* Budget Cards */}
       <div>
         <h3 className="text-lg font-semibold mb-3">
-          {selectedShop === "All" ? "Weekly Budgets - All Shops" : `Weekly Budget - ${selectedShop}`}
+          {selectedShop === "All" ? "Weekly Budgets" : `Budget - ${selectedShop}`}
         </h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {selectedShop === "All" ? (
-            shopsWithBudgets.map(({ shop, budget, orders: shopOrders, totalOrdered, totalDelivered, remainingIfAllDelivered, remainingBasedOnDelivered, budgetAmount }) => (
+            shopsWithBudgets.map(data => (
               <WeeklyBudgetCard
-                key={shop}
-                shop={shop}
-                currentBudget={budget}
-                weekOrders={shopOrders}
+                key={data.shop}
+                shop={data.shop}
+                currentBudget={data.budget}
+                weekOrders={data.orders}
                 weekStartStr={currentWeekStart}
-                onBudgetUpdate={handleBudgetUpdate}
-                totalOrdered={totalOrdered}
-                totalDelivered={totalDelivered}
-                remainingIfAllDelivered={remainingIfAllDelivered}
-                remainingBasedOnDelivered={remainingBasedOnDelivered}
-                budgetAmount={budgetAmount}
+                onBudgetUpdate={fetchData}
+                totalOrdered={data.totalOrdered}
+                totalDelivered={data.totalDelivered}
+                remainingBudget={data.remainingBudget}
+                budgetAmount={data.budgetAmount}
               />
             ))
           ) : (
-            <WeeklyBudgetCard
-              shop={selectedShop}
-              currentBudget={shopsWithBudgets.find(s => s.shop === selectedShop)?.budget || null}
-              weekOrders={shopsWithBudgets.find(s => s.shop === selectedShop)?.orders || []}
-              weekStartStr={currentWeekStart}
-              onBudgetUpdate={handleBudgetUpdate}
-              totalOrdered={shopsWithBudgets.find(s => s.shop === selectedShop)?.totalOrdered || 0}
-              totalDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.totalDelivered || 0}
-              remainingIfAllDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingIfAllDelivered || 0}
-              remainingBasedOnDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBasedOnDelivered || 0}
-              budgetAmount={shopsWithBudgets.find(s => s.shop === selectedShop)?.budgetAmount || 0}
+            <WeeklyBudgetCard 
+              {...shopsWithBudgets.find(s => s.shop === selectedShop)!} 
+              onBudgetUpdate={fetchData} 
             />
           )}
         </div>
       </div>
 
-      {selectedShop !== "All" && (
-        <div>
-          <WeeklyBudgetReport
-            shop={selectedShop}
-            currentBudget={shopsWithBudgets.find(s => s.shop === selectedShop)?.budget || null}
-            weekOrders={shopsWithBudgets.find(s => s.shop === selectedShop)?.orders || []}
-            weekStartStr={currentWeekStart}
-            totalOrdered={shopsWithBudgets.find(s => s.shop === selectedShop)?.totalOrdered || 0}
-            totalDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.totalDelivered || 0}
-            remainingIfAllDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingIfAllDelivered || 0}
-            remainingBasedOnDelivered={shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBasedOnDelivered || 0}
-            budgetAmount={shopsWithBudgets.find(s => s.shop === selectedShop)?.budgetAmount || 0}
-          />
-        </div>
-      )}
-
+      {/* Summary Cards */}
       {selectedShop !== "All" && (
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Budget Overview</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-sm">Weekly Budget</CardTitle></CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Weekly Budget:</span>
-                  <span className="text-sm font-medium">{formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.budgetAmount || 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Orders Placed:</span>
-                  <span className="text-sm font-medium">{formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.totalOrdered || 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Amount Delivered:</span>
-                  <span className="text-sm font-medium">{formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.totalDelivered || 0)}</span>
-                </div>
+              <div className="text-2xl font-bold">{formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.budgetAmount || 0)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-sm">Delivered This Week</CardTitle></CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.totalDelivered || 0)}
               </div>
             </CardContent>
           </Card>
-
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Remaining Budget</CardTitle>
-              <CardDescription>If all orders delivered</CardDescription>
-            </CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-sm">Remaining Budget</CardTitle></CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingIfAllDelivered || 0)}
+              <div className={`text-2xl font-bold ${shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBudget >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBudget || 0)}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Based on {shopsWithBudgets.find(s => s.shop === selectedShop)?.orders.length || 0} orders
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Available Budget</CardTitle>
-              <CardDescription>Based on actual deliveries</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${
-                (shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBasedOnDelivered || 0) >= 0 
-                  ? 'text-green-600' 
-                  : 'text-red-600'
-              }`}>
-                {formatCurrency(shopsWithBudgets.find(s => s.shop === selectedShop)?.remainingBasedOnDelivered || 0)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Actual cash remaining
-              </p>
+              <p className="text-xs text-muted-foreground">After deliveries</p>
             </CardContent>
           </Card>
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Pending Orders</CardTitle>
-            <CardDescription>Awaiting delivery</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{pendingOrders.length}</div>
-            <p className="text-sm text-muted-foreground">
-              {formatCurrency(pendingOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0))} total
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Partial Deliveries</CardTitle>
-            <CardDescription>Incomplete orders</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{partialOrders.length}</div>
-            <p className="text-sm text-muted-foreground">
-              {formatCurrency(partialOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0))} ordered
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Completed</CardTitle>
-            <CardDescription>Fully delivered</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{deliveredOrders.length}</div>
-            <p className="text-sm text-muted-foreground">
-              {formatCurrency(deliveredOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0))} total
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
+      {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Order List</CardTitle>
-          <CardDescription>
-            {getFilterDescription()}
-            {sortedOrders.length !== filteredOrders.length && ` (${sortedOrders.length} of ${filteredOrders.length} shown)`}
-          </CardDescription>
+          <CardTitle>Orders This Week</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -1474,60 +1007,123 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 <SortableHeader field="supply_name">Supply</SortableHeader>
                 <SortableHeader field="order_date">Order Date</SortableHeader>
                 <TableHead>Ordered By</TableHead>
-                <TableHead>Contact Person</TableHead>
-                <SortableHeader field="order_amount">Amount (ZAR)</SortableHeader>
-                <SortableHeader field="amount_delivered">Delivered (ZAR)</SortableHeader>
+                <SortableHeader field="order_amount">Amount</SortableHeader>
+                <SortableHeader field="amount_delivered">Delivered</SortableHeader>
                 <SortableHeader field="delivery_date">Delivery Date</SortableHeader>
-                <TableHead>Shop</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedOrders.map((order) => (
+              {sortedOrders.map(order => (
                 <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.supply_name}</TableCell>
+                  <TableCell>{order.supply_name}</TableCell>
                   <TableCell>{order.order_date}</TableCell>
                   <TableCell>{order.ordered_by}</TableCell>
-                  <TableCell>{order.contact_person}</TableCell>
                   <TableCell>{formatCurrency(order.order_amount)}</TableCell>
                   <TableCell>{formatCurrency(order.amount_delivered)}</TableCell>
                   <TableCell>{order.delivery_date}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{order.shop}</Badge>
-                  </TableCell>
                   <TableCell>{getStatusBadge(order.status)}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(order)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(order.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(order)}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(order.id)}><Trash2 className="h-4 w-4" /></Button>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          {sortedOrders.length === 0 && (
-            <div className="py-12 text-center text-muted-foreground">
-              {searchQuery || dateFrom || dateTo || showCurrentWeekOnly 
-                ? "No orders match your search criteria. Try adjusting your filters."
-                : "No orders found. Create your first order to get started."}
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      {/* Hidden Admin Section */}
+      <div className="fixed bottom-4 right-4 opacity-20 hover:opacity-100 transition-opacity">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="destructive" size="sm" className="text-xs">
+              🗑️ Admin
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-destructive">Admin Cleanup</DialogTitle>
+              <DialogDescription>
+                ⚠️ Dangerous: Delete all orders and cash-ups before a specific date
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="deleteBeforeDate">Delete records before:</Label>
+                <Input
+                  id="deleteBeforeDate"
+                  type="date"
+                  value={deleteBeforeDate}
+                  onChange={(e) => setDeleteBeforeDate(e.target.value)}
+                />
+                <p className="text-sm text-muted-foreground">
+                  All orders and cash-ups created before this date will be permanently deleted.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="customDate">Or custom date:</Label>
+                <Input
+                  id="customDate"
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => {
+                    setCustomDate(e.target.value);
+                    if (e.target.value) {
+                      setDeleteBeforeDate(e.target.value);
+                    }
+                  }}
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setDeleteBeforeDate('2024-01-26')}
+                  className="flex-1"
+                >
+                  Set to Jan 26
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setDeleteBeforeDate('2024-01-27')}
+                  className="flex-1"
+                >
+                  Set to Jan 27
+                </Button>
+              </div>
+              
+              <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/20">
+                <p className="text-sm text-destructive font-medium">
+                  🚨 This will delete:
+                </p>
+                <ul className="text-sm text-destructive/80 mt-2 space-y-1">
+                  <li>• All orders before {deleteBeforeDate}</li>
+                  <li>• All cash-ups before {deleteBeforeDate}</li>
+                  <li>• All income records before {deleteBeforeDate}</li>
+                  <li>• This action cannot be undone!</li>
+                </ul>
+              </div>
+              
+              <Button 
+                variant="destructive" 
+                onClick={handleAdminCleanup}
+                disabled={!deleteBeforeDate || cleanupLoading}
+                className="w-full"
+              >
+                {cleanupLoading ? (
+                  <>⏳ Deleting Records...</>
+                ) : (
+                  <>🗑️ Delete All Records Before {deleteBeforeDate}</>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 };
