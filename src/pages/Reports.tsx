@@ -43,7 +43,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [showCurrentWeekOnly, setShowCurrentWeekOnly] = useState(false);
+  const [showCurrentWeekOnly, setShowCurrentWeekOnly] = useState(true); // Default to true to show current week automatically
   const [activeFilter, setActiveFilter] = useState<string>('');
   
   // New state for print date range
@@ -91,23 +91,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const currentWeekRange = getCurrentWeekRange();
   const currentWeekStart = currentWeekRange.start;
   const currentWeekEnd = currentWeekRange.end;
-
-  // Get current period from today to end of current week (Sunday)
-  const getCurrentPeriodRange = () => {
-    const now = new Date();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    
-    const sunday = new Date(currentWeekRange.end);
-    sunday.setHours(23, 59, 59, 999);
-    
-    return {
-      start: start.toISOString().split('T')[0],
-      end: sunday.toISOString().split('T')[0]
-    };
-  };
-
-  const currentPeriodRange = getCurrentPeriodRange();
 
   // Get previous week's start and end dates (Monday to Sunday)
   const getPreviousWeekRange = () => {
@@ -172,7 +155,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     fetchData();
   }, []);
 
-  // Handle navigation state from dashboard
+  // Handle navigation state from dashboard - UPDATED to use full current week
   useEffect(() => {
     const navigationState = location.state as {
       filter?: string;
@@ -273,13 +256,15 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       return false;
     }
 
+    // FIXED: Show full current week (Monday to Sunday) instead of just from today
     if (showCurrentWeekOnly) {
       const orderDate = new Date(order.order_date);
-      const periodStart = new Date(currentPeriodRange.start);
-      const periodEnd = new Date(currentPeriodRange.end);
+      const weekStart = new Date(currentWeekStart);
+      const weekEnd = new Date(currentWeekEnd);
+      weekEnd.setHours(23, 59, 59, 999);
       
-      // Show orders from today until end of current week (Sunday)
-      if (orderDate < periodStart || orderDate > periodEnd) {
+      // Show orders from Monday to Sunday of current week
+      if (orderDate < weekStart || orderDate > weekEnd) {
         return false;
       }
     }
@@ -956,11 +941,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const getFilterDescription = () => {
     switch (activeFilter) {
       case 'current-week-orders':
-        return `Showing orders placed from today (${currentPeriodRange.start}) to end of week (${currentPeriodRange.end})`;
+        return `Showing current week orders (${currentWeekStart} to ${currentWeekEnd})`;
       case 'delivered-this-week':
-        return `Showing orders delivered from today (${currentPeriodRange.start}) to end of week (${currentPeriodRange.end})`;
+        return `Showing orders delivered this week (${currentWeekStart} to ${currentWeekEnd})`;
       case 'remaining-orders':
-        return `Showing pending orders from today (${currentPeriodRange.start}) to end of week (${currentPeriodRange.end})`;
+        return `Showing pending orders for current week (${currentWeekStart} to ${currentWeekEnd})`;
       case 'previous-week-delivered':
         return `Showing previous week orders delivered (${previousWeekRange.start} to ${previousWeekRange.end})`;
       case 'total-delivered':
@@ -972,7 +957,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       case 'budget':
         return `Showing current week orders (${currentWeekStart} to ${currentWeekEnd}) for budget overview`;
       default:
-        return `${selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders`;
+        return showCurrentWeekOnly 
+          ? `Showing current week orders (${currentWeekStart} to ${currentWeekEnd}) for ${selectedShop === "All" ? "all shops" : `shop ${selectedShop}`}`
+          : `${selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders`;
     }
   };
 
@@ -1254,7 +1241,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Dates</SelectItem>
-                  <SelectItem value="current">From Today to Sunday</SelectItem>
+                  <SelectItem value="current">Current Week (Mon-Sun)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1288,7 +1275,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               )}
               {showCurrentWeekOnly && (
                 <Badge variant="secondary" className="flex items-center gap-1">
-                  From Today to Sunday
+                  Current Week (Mon-Sun)
                   <button onClick={() => setShowCurrentWeekOnly(false)} className="ml-1 hover:text-destructive">
                     ×
                   </button>
@@ -1309,7 +1296,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   setSearchQuery('');
                   setDateFrom('');
                   setDateTo('');
-                  setShowCurrentWeekOnly(false);
+                  setShowCurrentWeekOnly(true); // Reset to show current week by default
                   setActiveFilter('');
                 }}
               >
