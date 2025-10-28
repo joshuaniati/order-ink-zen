@@ -46,7 +46,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const [showCurrentWeekOnly, setShowCurrentWeekOnly] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('');
   
-  // New state for print date range
   const [printDateFrom, setPrintDateFrom] = useState('');
   const [printDateTo, setPrintDateTo] = useState('');
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
@@ -66,18 +65,15 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     notes: "",
   });
 
-  // Get current week's start date (Monday) and end date (Sunday)
   const getCurrentWeekRange = () => {
     const now = new Date();
-    const day = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const day = now.getDay();
     
-    // Calculate Monday (start of week)
     const monday = new Date(now);
-    const diffToMonday = day === 0 ? -6 : 1 - day; // If Sunday, go back 6 days, else go to previous Monday
+    const diffToMonday = day === 0 ? -6 : 1 - day;
     monday.setDate(now.getDate() + diffToMonday);
     monday.setHours(0, 0, 0, 0);
     
-    // Calculate Sunday (end of week)
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
@@ -92,7 +88,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const currentWeekStart = currentWeekRange.start;
   const currentWeekEnd = currentWeekRange.end;
 
-  // Get current period from today to end of current week (Sunday)
   const getCurrentPeriodRange = () => {
     const now = new Date();
     const start = new Date(now);
@@ -109,13 +104,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
 
   const currentPeriodRange = getCurrentPeriodRange();
 
-  // Get previous week's start and end dates (Monday to Sunday)
   const getPreviousWeekRange = () => {
     const currentRange = getCurrentWeekRange();
     const monday = new Date(currentRange.start);
     const sunday = new Date(currentRange.end);
     
-    // Go back 7 days to get previous week
     monday.setDate(monday.getDate() - 7);
     sunday.setDate(sunday.getDate() - 7);
     
@@ -127,7 +120,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
 
   const previousWeekRange = getPreviousWeekRange();
 
-  // Initialize print dates with previous week range
   useEffect(() => {
     if (previousWeekRange.start && previousWeekRange.end) {
       setPrintDateFrom(previousWeekRange.start);
@@ -172,7 +164,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     fetchData();
   }, []);
 
-  // Handle navigation state from dashboard
   useEffect(() => {
     const navigationState = location.state as {
       filter?: string;
@@ -278,7 +269,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       const periodStart = new Date(currentPeriodRange.start);
       const periodEnd = new Date(currentPeriodRange.end);
       
-      // Show orders from today until end of current week (Sunday)
       if (orderDate < periodStart || orderDate > periodEnd) {
         return false;
       }
@@ -440,7 +430,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     await fetchData();
   };
 
-  // Updated function to include orders delivered during the selected date range
   const getDeliveredOrdersByDateRange = (shopName: string, startDate: string, endDate: string) => {
     return orders.filter(order => {
       const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
@@ -448,7 +437,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       const rangeEnd = new Date(endDate);
       rangeEnd.setHours(23, 59, 59, 999);
       
-      // Include orders that were delivered within the selected date range, regardless of when they were ordered
       return order.shop === shopName && 
              order.status === "Delivered" &&
              deliveryDate && 
@@ -457,7 +445,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     });
   };
 
-  // Print compact delivery list for selected date range
   const printDeliveryList = (shopName: string, startDate: string, endDate: string) => {
     const deliveredOrders = getDeliveredOrdersByDateRange(shopName, startDate, endDate);
     
@@ -671,7 +658,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     setIsPrintDialogOpen(false);
   };
 
-  // Print all shops with compact layout for selected date range
   const printAllShopsDeliveryList = (startDate: string, endDate: string) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
