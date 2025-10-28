@@ -75,14 +75,27 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     
     // Calculate Monday (start of week)
     const monday = new Date(now);
-    const diffToMonday = day === 0 ? -6 : 1 - day; // If Sunday, go back 6 days, else go to previous Monday
+    
+    // If today is Sunday (0), go back 6 days to get to Monday
+    // If today is Monday (1), no change needed
+    // If today is Tuesday (2), go back 1 day, etc.
+    const diffToMonday = day === 0 ? -6 : 1 - day;
     monday.setDate(now.getDate() + diffToMonday);
     monday.setHours(0, 0, 0, 0);
     
-    // Calculate Sunday (end of week)
+    // Calculate Sunday (end of week) - 6 days after Monday
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
+    
+    console.log('Current week calculation:', {
+      today: now.toDateString(),
+      dayOfWeek: day,
+      monday: monday.toDateString(),
+      sunday: sunday.toDateString(),
+      mondayFormatted: formatLocalDate(monday),
+      sundayFormatted: formatLocalDate(sunday)
+    });
     
     return {
       start: formatLocalDate(monday),
@@ -266,16 +279,36 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       // Parse order date in local timezone
       const orderDateParts = order.order_date.split('-').map(Number);
       const orderDate = createLocalDate(orderDateParts[0], orderDateParts[1], orderDateParts[2]);
+      orderDate.setHours(0, 0, 0, 0);
       
       // Parse week boundaries in local timezone
       const weekStartParts = currentWeekStart.split('-').map(Number);
       const weekEndParts = currentWeekEnd.split('-').map(Number);
       const weekStart = createLocalDate(weekStartParts[0], weekStartParts[1], weekStartParts[2]);
       const weekEnd = createLocalDate(weekEndParts[0], weekEndParts[1], weekEndParts[2]);
+      weekStart.setHours(0, 0, 0, 0);
       weekEnd.setHours(23, 59, 59, 999);
       
+      // Debug logging for October 26th orders
+      if (order.order_date === '2025-10-26') {
+        console.log('October 26th order check:', {
+          orderDate: order.order_date,
+          orderDateTime: orderDate.getTime(),
+          weekStart: currentWeekStart,
+          weekStartTime: weekStart.getTime(),
+          weekEnd: currentWeekEnd,
+          weekEndTime: weekEnd.getTime(),
+          shouldShow: orderDate.getTime() >= weekStart.getTime() && orderDate.getTime() <= weekEnd.getTime()
+        });
+      }
+      
       // Show orders from Monday to Sunday of current week
-      if (orderDate < weekStart || orderDate > weekEnd) {
+      // Use strict timestamp comparison
+      const orderTimestamp = orderDate.getTime();
+      const weekStartTimestamp = weekStart.getTime();
+      const weekEndTimestamp = weekEnd.getTime();
+      
+      if (orderTimestamp < weekStartTimestamp || orderTimestamp > weekEndTimestamp) {
         return false;
       }
     }
@@ -905,11 +938,13 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       // Parse dates in local timezone for accurate comparison
       const orderDateParts = o.order_date.split('-').map(Number);
       const orderDate = createLocalDate(orderDateParts[0], orderDateParts[1], orderDateParts[2]);
+      orderDate.setHours(0, 0, 0, 0);
       
       const weekStartParts = currentWeekStart.split('-').map(Number);
       const weekEndParts = currentWeekEnd.split('-').map(Number);
       const weekStart = createLocalDate(weekStartParts[0], weekStartParts[1], weekStartParts[2]);
       const weekEnd = createLocalDate(weekEndParts[0], weekEndParts[1], weekEndParts[2]);
+      weekStart.setHours(0, 0, 0, 0);
       weekEnd.setHours(23, 59, 59, 999);
       
       return o.shop === shop && orderDate >= weekStart && orderDate <= weekEnd;
