@@ -53,21 +53,23 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   
   const today = new Date().toISOString().split('T')[0];
   const location = useLocation();
-  
-  const [formData, setFormData] = useState({
-    supply_id: "",
-    order_date: today,
-    ordered_by: "",
-    contact_person: "",
-    order_amount: 0,
-    amount_delivered: 0,
-    delivery_date: "",
-    shop: "",
-    notes: "",
-  });
 
-  // Get current week's start date (Monday) and end date (Sunday)
+  // Helper function to create date in local timezone (South Africa/Pretoria)
+  const createLocalDate = (year: number, month: number, day: number): Date => {
+    return new Date(year, month - 1, day);
+  };
+
+  // Helper function to format date as YYYY-MM-DD in local timezone
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Get current week's start date (Monday) and end date (Sunday) in South Africa timezone
   const getCurrentWeekRange = () => {
+    // Use local date/time which should be South Africa/Pretoria timezone
     const now = new Date();
     const day = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     
@@ -83,8 +85,8 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     sunday.setHours(23, 59, 59, 999);
     
     return {
-      start: monday.toISOString().split('T')[0],
-      end: sunday.toISOString().split('T')[0]
+      start: formatLocalDate(monday),
+      end: formatLocalDate(sunday)
     };
   };
 
@@ -95,16 +97,19 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   // Get previous week's start and end dates (Monday to Sunday)
   const getPreviousWeekRange = () => {
     const currentRange = getCurrentWeekRange();
-    const monday = new Date(currentRange.start);
-    const sunday = new Date(currentRange.end);
+    const startParts = currentRange.start.split('-').map(Number);
+    const endParts = currentRange.end.split('-').map(Number);
+    
+    const monday = createLocalDate(startParts[0], startParts[1], startParts[2]);
+    const sunday = createLocalDate(endParts[0], endParts[1], endParts[2]);
     
     // Go back 7 days to get previous week
     monday.setDate(monday.getDate() - 7);
     sunday.setDate(sunday.getDate() - 7);
     
     return {
-      start: monday.toISOString().split('T')[0],
-      end: sunday.toISOString().split('T')[0]
+      start: formatLocalDate(monday),
+      end: formatLocalDate(sunday)
     };
   };
 
@@ -258,9 +263,15 @@ const Orders = ({ selectedShop }: OrdersProps) => {
 
     // FIXED: Show full current week (Monday to Sunday) instead of just from today
     if (showCurrentWeekOnly) {
-      const orderDate = new Date(order.order_date);
-      const weekStart = new Date(currentWeekStart);
-      const weekEnd = new Date(currentWeekEnd);
+      // Parse order date in local timezone
+      const orderDateParts = order.order_date.split('-').map(Number);
+      const orderDate = createLocalDate(orderDateParts[0], orderDateParts[1], orderDateParts[2]);
+      
+      // Parse week boundaries in local timezone
+      const weekStartParts = currentWeekStart.split('-').map(Number);
+      const weekEndParts = currentWeekEnd.split('-').map(Number);
+      const weekStart = createLocalDate(weekStartParts[0], weekStartParts[1], weekStartParts[2]);
+      const weekEnd = createLocalDate(weekEndParts[0], weekEndParts[1], weekEndParts[2]);
       weekEnd.setHours(23, 59, 59, 999);
       
       // Show orders from Monday to Sunday of current week
@@ -428,17 +439,22 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   // Updated function to include orders delivered during the selected date range
   const getDeliveredOrdersByDateRange = (shopName: string, startDate: string, endDate: string) => {
     return orders.filter(order => {
-      const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
-      const rangeStart = new Date(startDate);
-      const rangeEnd = new Date(endDate);
+      if (!order.delivery_date || order.status !== "Delivered" || order.shop !== shopName) {
+        return false;
+      }
+
+      // Parse dates in local timezone
+      const deliveryParts = order.delivery_date.split('-').map(Number);
+      const startParts = startDate.split('-').map(Number);
+      const endParts = endDate.split('-').map(Number);
+      
+      const deliveryDate = createLocalDate(deliveryParts[0], deliveryParts[1], deliveryParts[2]);
+      const rangeStart = createLocalDate(startParts[0], startParts[1], startParts[2]);
+      const rangeEnd = createLocalDate(endParts[0], endParts[1], endParts[2]);
       rangeEnd.setHours(23, 59, 59, 999);
       
       // Include orders that were delivered within the selected date range, regardless of when they were ordered
-      return order.shop === shopName && 
-             order.status === "Delivered" &&
-             deliveryDate && 
-             deliveryDate >= rangeStart && 
-             deliveryDate <= rangeEnd;
+      return deliveryDate >= rangeStart && deliveryDate <= rangeEnd;
     });
   };
 
@@ -577,7 +593,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             <div class="shop-name">${shopName} - Delivery List</div>
             <div class="period">Delivery Period: ${startDate} to ${endDate}</div>
             <div class="subtitle">Includes all orders delivered in the selected date range (regardless of order date)</div>
-            <div class="period">Generated: ${new Date().toLocaleDateString()}</div>
+            <div class="period">Generated: ${new Date().toLocaleDateString('en-ZA')}</div>
           </div>
           
           <table>
@@ -678,7 +694,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             <div class="shop-name">${shopName} - Delivery List</div>
             <div class="period">Delivery Period: ${startDate} to ${endDate}</div>
             <div class="subtitle">Includes all orders delivered in the selected date range (regardless of order date)</div>
-            <div class="period">Generated: ${new Date().toLocaleDateString()}</div>
+            <div class="period">Generated: ${new Date().toLocaleDateString('en-ZA')}</div>
           </div>
           
           <table>
@@ -886,8 +902,17 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const shopsWithBudgets = shops.map(shop => {
     const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === currentWeekStart);
     const shopWeekOrders = orders.filter(o => {
-      const orderDate = new Date(o.order_date);
-      return o.shop === shop && orderDate >= new Date(currentWeekStart) && orderDate <= new Date(currentWeekEnd);
+      // Parse dates in local timezone for accurate comparison
+      const orderDateParts = o.order_date.split('-').map(Number);
+      const orderDate = createLocalDate(orderDateParts[0], orderDateParts[1], orderDateParts[2]);
+      
+      const weekStartParts = currentWeekStart.split('-').map(Number);
+      const weekEndParts = currentWeekEnd.split('-').map(Number);
+      const weekStart = createLocalDate(weekStartParts[0], weekStartParts[1], weekStartParts[2]);
+      const weekEnd = createLocalDate(weekEndParts[0], weekEndParts[1], weekEndParts[2]);
+      weekEnd.setHours(23, 59, 59, 999);
+      
+      return o.shop === shop && orderDate >= weekStart && orderDate <= weekEnd;
     });
 
     const totalOrdered = shopWeekOrders.reduce((sum, order) => sum + (order.order_amount || 0), 0);
