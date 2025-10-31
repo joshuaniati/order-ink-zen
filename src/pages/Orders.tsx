@@ -146,27 +146,33 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       return orderDate >= weekMonday && orderDate <= weekSunday;
     });
 
-  // Calculate current week's spending
+  // Calculate current week's spending for SELECTED SHOP ONLY
   const calculateCurrentWeekSpending = () => {
     const weekMonday = new Date(getCurrentWeekMonday());
     const weekSunday = getSunday(weekMonday);
     
     const weekOrders = orders.filter(order => {
       const orderDate = new Date(order.order_date);
-      return orderDate >= weekMonday && orderDate <= weekSunday;
+      const isInWeek = orderDate >= weekMonday && orderDate <= weekSunday;
+      
+      // If "All" shops is selected, include all orders for the week
+      if (selectedShop === "All") {
+        return isInWeek;
+      }
+      // Otherwise, only include orders for the selected shop
+      return isInWeek && order.shop === selectedShop;
     });
 
     return weekOrders.reduce((total, order) => total + (order.order_amount || 0), 0);
   };
 
-  // Get current week's budget
+  // Get current week's budget for SELECTED SHOP ONLY
   const getCurrentWeekBudget = () => {
     const weekMonday = getCurrentWeekMonday();
+    
     if (selectedShop === "All") {
-      // For "All" shops, sum all budgets for the week
-      return weeklyBudgets
-        .filter(budget => budget.week_start_date === weekMonday)
-        .reduce((total, budget) => total + (budget.budget_amount || 0), 0);
+      // For "All" shops, return 0 since we don't want to show combined budget in overview
+      return 0;
     } else {
       const budget = weeklyBudgets.find(
         b => b.shop === selectedShop && b.week_start_date === weekMonday
@@ -522,46 +528,48 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       </div>
 
-      {/* Current Week Spending vs Budget */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Weekly Budget Overview</span>
-            <Badge variant={budgetDifference >= 0 ? "default" : "destructive"}>
-              {budgetDifference >= 0 ? "Under Budget" : "Over Budget"}
-            </Badge>
-          </CardTitle>
-          <CardDescription>
-            Spending for the week of {selectedWeek}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(currentWeekBudget)}
+      {/* Current Week Spending vs Budget - ONLY FOR SELECTED SHOP */}
+      {selectedShop !== "All" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Weekly Budget Overview - {selectedShop}</span>
+              <Badge variant={budgetDifference >= 0 ? "default" : "destructive"}>
+                {budgetDifference >= 0 ? "Under Budget" : "Over Budget"}
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Spending for {selectedShop} for the week of {selectedWeek}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {formatCurrency(currentWeekBudget)}
+                </div>
+                <div className="text-sm text-muted-foreground">Weekly Budget</div>
               </div>
-              <div className="text-sm text-muted-foreground">Weekly Budget</div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {formatCurrency(currentWeekSpending)}
+                </div>
+                <div className="text-sm text-muted-foreground">Current Spending</div>
+              </div>
+              <div className="text-center">
+                <div className={`text-2xl font-bold ${
+                  budgetDifference >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {formatCurrency(Math.abs(budgetDifference))}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {budgetDifference >= 0 ? 'Remaining' : 'Over Budget'}
+                </div>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {formatCurrency(currentWeekSpending)}
-              </div>
-              <div className="text-sm text-muted-foreground">Current Spending</div>
-            </div>
-            <div className="text-center">
-              <div className={`text-2xl font-bold ${
-                budgetDifference >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {formatCurrency(Math.abs(budgetDifference))}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {budgetDifference >= 0 ? 'Remaining' : 'Over Budget'}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Weekly Budgets Section */}
       <div>
