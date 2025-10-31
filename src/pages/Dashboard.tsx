@@ -1,12 +1,11 @@
 import { Shop } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import MetricCard from "@/components/dashboard/MetricCard";
-import { Package, ShoppingCart, DollarSign, TrendingUp, Calendar, Truck, Clock, CheckCircle } from "lucide-react";
+import { Package, ShoppingCart, DollarSign, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from 'react';
 import type { Tables } from "@/integrations/supabase/types";
-import { useNavigate } from "react-router-dom";
 
 interface DashboardProps {
   selectedShop: Shop;
@@ -15,6 +14,7 @@ interface DashboardProps {
 type Supply = Tables<'supplies'>;
 type Order = Tables<'orders'>;
 type IncomeRecord = Tables<'income_records'>;
+
 type WeeklyBudget = Tables<'weekly_budgets'>;
 
 const Dashboard = ({ selectedShop }: DashboardProps) => {
@@ -23,7 +23,6 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
   const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([]);
   const [weeklyBudgets, setWeeklyBudgets] = useState<WeeklyBudget[]>([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
@@ -91,28 +90,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     return monday.toISOString().split('T')[0];
   };
 
-  // Get previous week's start and end dates
-  const getPreviousWeekRange = () => {
-    const now = new Date();
-    const day = now.getDay();
-    const currentWeekStartDiff = now.getDate() - day + (day === 0 ? -6 : 1);
-    
-    const previousWeekStart = new Date(now);
-    previousWeekStart.setDate(currentWeekStartDiff - 7);
-    previousWeekStart.setHours(0, 0, 0, 0);
-    
-    const previousWeekEnd = new Date(previousWeekStart);
-    previousWeekEnd.setDate(previousWeekStart.getDate() + 6);
-    previousWeekEnd.setHours(23, 59, 59, 999);
-    
-    return {
-      start: previousWeekStart.toISOString().split('T')[0],
-      end: previousWeekEnd.toISOString().split('T')[0]
-    };
-  };
-
   const currentWeekStart = getCurrentWeekStart();
-  const previousWeekRange = getPreviousWeekRange();
 
   // Get weekly budget for current week and shop
   const filteredBudgets = selectedShop === "All" 
@@ -132,47 +110,11 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     (sum, o) => sum + (Number(o.order_amount) || 0), 0
   );
 
-  // Calculate delivered vs pending for current week orders
-  const currentWeekDelivered = currentWeekOrders.filter(
-    o => o.status === "Delivered" || (o.delivery_date && o.delivery_date <= today)
+  const totalDelivered = currentWeekOrders.reduce(
+    (sum, o) => sum + (Number(o.amount_delivered) || 0), 0
   );
 
-  const currentWeekDeliveredAmount = currentWeekDelivered.reduce(
-    (sum, o) => sum + (Number(o.amount_delivered) || Number(o.order_amount) || 0), 0
-  );
-
-  const currentWeekPending = currentWeekOrders.filter(
-    o => o.status !== "Delivered" && (!o.delivery_date || o.delivery_date > today)
-  );
-
-  const currentWeekPendingAmount = currentWeekPending.reduce(
-    (sum, o) => sum + (Number(o.order_amount) || 0), 0
-  );
-
-  // Calculate previous week orders delivered this week
-  const previousWeekOrdersDeliveredThisWeek = filteredOrders.filter(
-    o => {
-      const orderDate = o.order_date;
-      const isPreviousWeekOrder = orderDate >= previousWeekRange.start && orderDate <= previousWeekRange.end;
-      
-      let isDeliveredThisWeek = false;
-      
-      if (o.delivery_date) {
-        isDeliveredThisWeek = o.delivery_date >= currentWeekStart;
-      } else {
-        const lastUpdated = o.updated_at || o.created_at;
-        isDeliveredThisWeek = o.status === "Delivered" && lastUpdated >= currentWeekStart;
-      }
-      
-      return isPreviousWeekOrder && isDeliveredThisWeek;
-    }
-  );
-
-  const previousWeekOrdersDeliveredAmount = previousWeekOrdersDeliveredThisWeek.reduce(
-    (sum, o) => sum + (Number(o.amount_delivered) || Number(o.order_amount) || 0), 0
-  );
-
-  // Calculate budget metrics
+  // Calculate budget savings (difference when delivered < ordered)
   const budgetSavings = currentWeekOrders.reduce((sum, o) => {
     const ordered = Number(o.order_amount) || 0;
     const delivered = Number(o.amount_delivered) || 0;
@@ -182,161 +124,6 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
   const weeklyBudgetAmount = currentWeekBudget?.budget_amount || 0;
   const budgetRemaining = weeklyBudgetAmount - totalOrderAmount;
   const availableBudget = budgetRemaining + budgetSavings;
-
-  // Overall Delivery Summary Calculations
-  const totalDeliveredAll = currentWeekDeliveredAmount + previousWeekOrdersDeliveredAmount;
-  const stillAwaitingDelivery = filteredOrders.filter(o => 
-    o.status !== "Delivered" && (!o.delivery_date || o.delivery_date > today)
-  );
-  const stillAwaitingDeliveryAmount = stillAwaitingDelivery.reduce(
-    (sum, o) => sum + (Number(o.order_amount) || 0), 0
-  );
-
-  // Navigation handlers with state
-  const handleNavigateToBudget = () => {
-    navigate('/orders', { 
-      state: { 
-        filter: 'budget',
-        selectedShop,
-        currentWeekStart
-      }
-    });
-  };
-
-  const handleNavigateToOrdersPlaced = () => {
-    navigate('/orders', { 
-      state: { 
-        filter: 'current-week-orders',
-        selectedShop,
-        currentWeekStart
-      }
-    });
-  };
-
-  const handleNavigateToBudgetSavings = () => {
-    navigate('/orders', { 
-      state: { 
-        filter: 'budget-savings',
-        selectedShop,
-        currentWeekStart
-      }
-    });
-  };
-
-  const handleNavigateToAvailableBudget = () => {
-    navigate('/orders', { 
-      state: { 
-        filter: 'available-budget',
-        selectedShop,
-        currentWeekStart
-      }
-    });
-  };
-
-  const handleNavigateToDeliveredThisWeek = () => {
-    navigate('/orders', { 
-      state: { 
-        filter: 'delivered-this-week',
-        selectedShop,
-        currentWeekStart
-      }
-    });
-  };
-
-  const handleNavigateToRemainingOrders = () => {
-    navigate('/orders', { 
-      state: { 
-        filter: 'remaining-orders',
-        selectedShop,
-        currentWeekStart
-      }
-    });
-  };
-
-  const handleNavigateToPreviousWeekDelivered = () => {
-    navigate('/orders', { 
-      state: { 
-        filter: 'previous-week-delivered',
-        selectedShop,
-        currentWeekStart,
-        previousWeekRange
-      }
-    });
-  };
-
-  const handleNavigateToTotalDelivered = () => {
-    navigate('/orders', { 
-      state: { 
-        filter: 'total-delivered',
-        selectedShop,
-        currentWeekStart,
-        previousWeekRange
-      }
-    });
-  };
-
-  const handleNavigateToStillAwaiting = () => {
-    navigate('/orders', { 
-      state: { 
-        filter: 'still-awaiting',
-        selectedShop
-      }
-    });
-  };
-
-  const handleNavigateToTotalSupplies = () => {
-    navigate('/supplies', { 
-      state: { 
-        filter: 'all',
-        selectedShop
-      }
-    });
-  };
-
-  const handleNavigateToPendingOrders = () => {
-    navigate('/orders', { 
-      state: { 
-        filter: 'pending',
-        selectedShop
-      }
-    });
-  };
-
-  const handleNavigateToIncome = () => {
-    navigate('/income', { 
-      state: { 
-        filter: 'today',
-        selectedShop
-      }
-    });
-  };
-
-  const handleNavigateToInventoryValue = () => {
-    navigate('/supplies', { 
-      state: { 
-        filter: 'inventory-value',
-        selectedShop
-      }
-    });
-  };
-
-  const handleNavigateToInventorySummary = () => {
-    navigate('/supplies', { 
-      state: { 
-        filter: 'summary',
-        selectedShop
-      }
-    });
-  };
-
-  const handleNavigateToRecentSupplies = () => {
-    navigate('/supplies', { 
-      state: { 
-        filter: 'recent',
-        selectedShop
-      }
-    });
-  };
 
   if (loading) {
     return (
@@ -355,229 +142,103 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
         </p>
       </div>
 
-      {/* Budget Overview Section */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div onClick={handleNavigateToBudget} className="cursor-pointer">
-          <MetricCard
-            title="Weekly Budget"
-            value={formatCurrency(weeklyBudgetAmount)}
-            description={currentWeekBudget ? "Current week" : "Not set"}
-            icon={DollarSign}
-            variant="default"
-          />
-        </div>
-        <div onClick={handleNavigateToOrdersPlaced} className="cursor-pointer">
-          <MetricCard
-            title="Orders Placed"
-            value={formatCurrency(totalOrderAmount)}
-            description="This week's spending"
-            icon={ShoppingCart}
-            variant="default"
-          />
-        </div>
-        <div onClick={handleNavigateToBudgetSavings} className="cursor-pointer">
-          <MetricCard
-            title="Budget Savings"
-            value={formatCurrency(budgetSavings)}
-            description="From partial deliveries"
-            icon={TrendingUp}
-            variant="success"
-          />
-        </div>
-        <div onClick={handleNavigateToAvailableBudget} className="cursor-pointer">
-          <MetricCard
-            title="Available Budget"
-            value={formatCurrency(availableBudget)}
-            description={`Remaining: ${formatCurrency(budgetRemaining)}`}
-            icon={DollarSign}
-            variant={availableBudget >= 0 ? "success" : "warning"}
-          />
-        </div>
+        <MetricCard
+          title="Weekly Budget"
+          value={formatCurrency(weeklyBudgetAmount)}
+          description={currentWeekBudget ? "Current week" : "Not set"}
+          icon={DollarSign}
+          variant="default"
+        />
+        <MetricCard
+          title="Orders Placed"
+          value={formatCurrency(totalOrderAmount)}
+          description="This week's spending"
+          icon={ShoppingCart}
+          variant="default"
+        />
+        <MetricCard
+          title="Expected Delivery"
+          value={formatCurrency(totalDelivered)}
+          description="Amount to be delivered"
+          icon={Package}
+          variant="default"
+        />
+        <MetricCard
+          title="Available Budget"
+          value={formatCurrency(availableBudget)}
+          description={`Savings: ${formatCurrency(budgetSavings)}`}
+          icon={TrendingUp}
+          variant={availableBudget >= 0 ? "success" : "warning"}
+        />
       </div>
 
-      {/* This Week's Orders Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            This Week's Orders
-          </CardTitle>
-          <CardDescription>
-            Breakdown of orders placed and delivered during the current week
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div onClick={handleNavigateToOrdersPlaced} className="cursor-pointer">
-              <MetricCard
-                title="Orders Placed This Week"
-                value={formatCurrency(totalOrderAmount)}
-                description={`${currentWeekOrders.length} orders`}
-                icon={ShoppingCart}
-                variant="default"
-              />
-            </div>
-            <div onClick={handleNavigateToDeliveredThisWeek} className="cursor-pointer">
-              <MetricCard
-                title="Delivered This Week"
-                value={formatCurrency(currentWeekDeliveredAmount)}
-                description={`${currentWeekDelivered.length} orders`}
-                icon={CheckCircle}
-                variant="success"
-              />
-            </div>
-            <div onClick={handleNavigateToRemainingOrders} className="cursor-pointer">
-              <MetricCard
-                title="Remaining (Not Delivered)"
-                value={formatCurrency(currentWeekPendingAmount)}
-                description={`${currentWeekPending.length} orders pending`}
-                icon={Clock}
-                variant="warning"
-              />
-            </div>
-            <div onClick={handleNavigateToPreviousWeekDelivered} className="cursor-pointer">
-              <MetricCard
-                title="Prev Week → This Week"
-                value={formatCurrency(previousWeekOrdersDeliveredAmount)}
-                description={`${previousWeekOrdersDeliveredThisWeek.length} orders`}
-                icon={Truck}
-                variant="success"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Overall Delivery Summary Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Overall Delivery Summary
-          </CardTitle>
-          <CardDescription>
-            Combined totals across all time periods
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div onClick={handleNavigateToTotalDelivered} className="cursor-pointer">
-              <MetricCard
-                title="Total Delivered (All)"
-                value={formatCurrency(totalDeliveredAll)}
-                description="This week + Previous week deliveries"
-                icon={CheckCircle}
-                variant="success"
-              />
-            </div>
-            <div onClick={handleNavigateToStillAwaiting} className="cursor-pointer">
-              <MetricCard
-                title="Still Awaiting Delivery"
-                value={formatCurrency(stillAwaitingDeliveryAmount)}
-                description={`${stillAwaitingDelivery.length} orders pending`}
-                icon={Clock}
-                variant="warning"
-              />
-            </div>
-            <div onClick={handleNavigateToOrdersPlaced} className="cursor-pointer">
-              <MetricCard
-                title="Grand Total Ordered"
-                value={formatCurrency(totalOrderAmount)}
-                description="This week's total spending"
-                icon={ShoppingCart}
-                variant="default"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Additional Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div onClick={handleNavigateToTotalSupplies} className="cursor-pointer">
-          <MetricCard
-            title="Total Supplies"
-            value={filteredSupplies.length.toString()}
-            description="Items in inventory"
-            icon={Package}
-            variant="default"
-          />
-        </div>
-        <div onClick={handleNavigateToPendingOrders} className="cursor-pointer">
-          <MetricCard
-            title="Pending Orders"
-            value={pendingOrders.length.toString()}
-            description="All orders awaiting delivery"
-            icon={ShoppingCart}
-            variant="warning"
-          />
-        </div>
-        <div onClick={handleNavigateToIncome} className="cursor-pointer">
-          <MetricCard
-            title="Today's Net Income"
-            value={formatCurrency(todayIncome)}
-            description={`Weekly: ${formatCurrency(weeklyIncome)}`}
-            icon={todayIncome >= 0 ? TrendingUp : DollarSign}
-            variant={todayIncome >= 0 ? "success" : "destructive"}
-          />
-        </div>
-        <div onClick={handleNavigateToInventoryValue} className="cursor-pointer">
-          <MetricCard
-            title="Inventory Value"
-            value={formatCurrency(filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0))}
-            description="Total supply amount"
-            icon={Package}
-            variant="default"
-          />
-        </div>
+        <MetricCard
+          title="Total Supplies"
+          value={filteredSupplies.length.toString()}
+          description="Items in inventory"
+          icon={Package}
+          variant="default"
+        />
+        <MetricCard
+          title="Pending Orders"
+          value={pendingOrders.length.toString()}
+          description="Awaiting delivery"
+          icon={ShoppingCart}
+          variant="default"
+        />
+        <MetricCard
+          title="Today's Net Income"
+          value={formatCurrency(todayIncome)}
+          description={`Weekly: ${formatCurrency(weeklyIncome)}`}
+          icon={todayIncome >= 0 ? TrendingUp : DollarSign}
+          variant={todayIncome >= 0 ? "success" : "destructive"}
+        />
+        <MetricCard
+          title="Budget Savings"
+          value={formatCurrency(budgetSavings)}
+          description="Undelivered amounts"
+          icon={DollarSign}
+          variant="success"
+        />
       </div>
 
-      {/* Supplies Summary */}
       <div className="grid gap-4 md:grid-cols-2">
-        <div onClick={handleNavigateToInventorySummary} className="cursor-pointer">
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader>
-              <CardTitle>Inventory Summary</CardTitle>
-              <CardDescription>Total supplies and value</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium">Total Items:</span>
-                  <span className="text-sm">{filteredSupplies.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium">Total Value:</span>
-                  <span className="text-sm">{formatCurrency(filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0))}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Total Supplies</CardTitle>
+            <CardDescription>Inventory summary</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{filteredSupplies.length}</div>
+            <p className="text-sm text-muted-foreground mt-2">
+              Total amount: {filteredSupplies.reduce((sum, s) => sum + (s.amount || 0), 0)}
+            </p>
+          </CardContent>
+        </Card>
         
-        <div onClick={handleNavigateToRecentSupplies} className="cursor-pointer">
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader>
-              <CardTitle>Recent Supplies</CardTitle>
-              <CardDescription>Latest inventory items</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {filteredSupplies.slice(0, 5).map((item) => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <span className="font-medium">{item.name}</span>
-                    <span className="text-muted-foreground">
-                      {item.amount}
-                    </span>
-                  </div>
-                ))}
-                {filteredSupplies.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No supplies yet</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Supplies</CardTitle>
+            <CardDescription>Latest inventory items</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {filteredSupplies.slice(0, 5).map((item) => (
+                <div key={item.id} className="flex justify-between text-sm">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="text-muted-foreground">
+                    {item.amount}
+                  </span>
+                </div>
+              ))}
+              {filteredSupplies.length === 0 && (
+                <p className="text-sm text-muted-foreground">No supplies yet</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
