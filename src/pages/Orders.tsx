@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -31,8 +31,10 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const [shops, setShops] = useState<string[]>([]);
   const [weeklyBudgets, setWeeklyBudgets] = useState<WeeklyBudget[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isWeekSelectOpen, setIsWeekSelectOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedWeek, setSelectedWeek] = useState<string>("");
   
   const today = new Date().toISOString().split('T')[0];
   
@@ -47,6 +49,45 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     shop: "",
     notes: "",
   });
+
+  // Function to get Monday of the current week
+  const getMonday = (date: Date) => {
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is Sunday
+    return new Date(date.setDate(diff));
+  };
+
+  // Function to get Sunday of the current week
+  const getSunday = (date: Date) => {
+    const monday = getMonday(new Date(date));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return sunday;
+  };
+
+  // Function to format date as YYYY-MM-DD
+  const formatDate = (date: Date) => {
+    return date.toISOString().split('T')[0];
+  };
+
+  // Function to get week range string
+  const getWeekRangeString = (monday: Date, sunday: Date) => {
+    return `${formatDate(monday)} to ${formatDate(sunday)}`;
+  };
+
+  // Initialize selected week to current week
+  useEffect(() => {
+    const monday = getMonday(new Date());
+    const sunday = getSunday(new Date());
+    setSelectedWeek(getWeekRangeString(monday, sunday));
+    
+    // Show week selection popup on first load
+    const hasSeenPopup = localStorage.getItem('hasSeenWeekPopup');
+    if (!hasSeenPopup) {
+      setIsWeekSelectOpen(true);
+      localStorage.setItem('hasSeenWeekPopup', 'true');
+    }
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -85,9 +126,58 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     fetchData();
   }, []);
 
-  const filteredOrders = selectedShop === "All" 
-    ? orders 
-    : orders.filter(o => o.shop === selectedShop);
+  // Get current week's Monday date from selected week string
+  const getCurrentWeekMonday = () => {
+    if (selectedWeek) {
+      return selectedWeek.split(' to ')[0];
+    }
+    return formatDate(getMonday(new Date()));
+  };
+
+  // Filter orders based on selected shop AND selected week
+  const filteredOrders = (selectedShop === "All" ? orders : orders.filter(o => o.shop === selectedShop))
+    .filter(order => {
+      if (!selectedWeek) return true;
+      
+      const orderDate = new Date(order.order_date);
+      const weekMonday = new Date(getCurrentWeekMonday());
+      const weekSunday = getSunday(weekMonday);
+      
+      return orderDate >= weekMonday && orderDate <= weekSunday;
+    });
+
+  // Calculate current week's spending
+  const calculateCurrentWeekSpending = () => {
+    const weekMonday = new Date(getCurrentWeekMonday());
+    const weekSunday = getSunday(weekMonday);
+    
+    const weekOrders = orders.filter(order => {
+      const orderDate = new Date(order.order_date);
+      return orderDate >= weekMonday && orderDate <= weekSunday;
+    });
+
+    return weekOrders.reduce((total, order) => total + (order.order_amount || 0), 0);
+  };
+
+  // Get current week's budget
+  const getCurrentWeekBudget = () => {
+    const weekMonday = getCurrentWeekMonday();
+    if (selectedShop === "All") {
+      // For "All" shops, sum all budgets for the week
+      return weeklyBudgets
+        .filter(budget => budget.week_start_date === weekMonday)
+        .reduce((total, budget) => total + (budget.budget_amount || 0), 0);
+    } else {
+      const budget = weeklyBudgets.find(
+        b => b.shop === selectedShop && b.week_start_date === weekMonday
+      );
+      return budget?.budget_amount || 0;
+    }
+  };
+
+  const currentWeekSpending = calculateCurrentWeekSpending();
+  const currentWeekBudget = getCurrentWeekBudget();
+  const budgetDifference = currentWeekBudget - currentWeekSpending;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,23 +297,27 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     await fetchData();
   };
 
-  const now = new Date();
-  const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
-  const weekStartStr = weekStart.toISOString().split('T')[0];
-  
-  // Get budgets and orders for each shop
-  const shopsWithBudgets = shops.map(shop => {
-    const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === weekStartStr);
-    const shopWeekOrders = orders.filter(o => {
-      const orderDate = new Date(o.order_date);
-      return o.shop === shop && orderDate >= new Date(weekStartStr);
-    });
-    return {
-      shop,
-      budget,
-      orders: shopWeekOrders
-    };
-  });
+  // Generate week options (current week and previous 4 weeks)
+  const generateWeekOptions = () => {
+    const options = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 5; i++) {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1) - (i * 7));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      
+      options.push({
+        value: getWeekRangeString(weekStart, weekEnd),
+        label: `Week of ${formatDate(weekStart)} to ${formatDate(weekEnd)}`
+      });
+    }
+    
+    return options;
+  };
+
+  const weekOptions = generateWeekOptions();
 
   const pendingOrders = filteredOrders.filter(o => o.status === "Pending");
   const partialOrders = filteredOrders.filter(o => o.status === "Partial");
@@ -248,10 +342,54 @@ const Orders = ({ selectedShop }: OrdersProps) => {
 
   return (
     <div className="space-y-6">
+      {/* Week Selection Dialog */}
+      <Dialog open={isWeekSelectOpen} onOpenChange={setIsWeekSelectOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Week</DialogTitle>
+            <DialogDescription>
+              Please select the week you want to view. The week starts on Monday and ends on Sunday.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a week" />
+              </SelectTrigger>
+              <SelectContent>
+                {weekOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex justify-end gap-2">
+              <Button onClick={() => setIsWeekSelectOpen(false)}>
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Orders</h2>
           <p className="text-muted-foreground">Manage purchase orders and deliveries</p>
+          <div className="flex items-center gap-2 mt-2">
+            <Badge variant="outline" className="text-sm">
+              {selectedWeek}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsWeekSelectOpen(true)}
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Change Week
+            </Button>
+          </div>
         </div>
         <div className="flex gap-2">
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -384,6 +522,47 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       </div>
 
+      {/* Current Week Spending vs Budget */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Weekly Budget Overview</span>
+            <Badge variant={budgetDifference >= 0 ? "default" : "destructive"}>
+              {budgetDifference >= 0 ? "Under Budget" : "Over Budget"}
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            Spending for the week of {selectedWeek}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {formatCurrency(currentWeekBudget)}
+              </div>
+              <div className="text-sm text-muted-foreground">Weekly Budget</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {formatCurrency(currentWeekSpending)}
+              </div>
+              <div className="text-sm text-muted-foreground">Current Spending</div>
+            </div>
+            <div className="text-center">
+              <div className={`text-2xl font-bold ${
+                budgetDifference >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {formatCurrency(Math.abs(budgetDifference))}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {budgetDifference >= 0 ? 'Remaining' : 'Over Budget'}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Weekly Budgets Section */}
       <div>
         <h3 className="text-lg font-semibold mb-3">
@@ -391,22 +570,37 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {selectedShop === "All" ? (
-            shopsWithBudgets.map(({ shop, budget, orders: shopOrders }) => (
-              <WeeklyBudgetCard
-                key={shop}
-                shop={shop}
-                currentBudget={budget}
-                weekOrders={shopOrders}
-                weekStartStr={weekStartStr}
-                onBudgetUpdate={handleBudgetUpdate}
-              />
-            ))
+            shops.map((shop) => {
+              const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === getCurrentWeekMonday());
+              const shopWeekOrders = orders.filter(o => {
+                const orderDate = new Date(o.order_date);
+                const weekMonday = new Date(getCurrentWeekMonday());
+                const weekSunday = getSunday(weekMonday);
+                return o.shop === shop && orderDate >= weekMonday && orderDate <= weekSunday;
+              });
+              
+              return (
+                <WeeklyBudgetCard
+                  key={shop}
+                  shop={shop}
+                  currentBudget={budget || null}
+                  weekOrders={shopWeekOrders}
+                  weekStartStr={getCurrentWeekMonday()}
+                  onBudgetUpdate={handleBudgetUpdate}
+                />
+              );
+            })
           ) : (
             <WeeklyBudgetCard
               shop={selectedShop}
-              currentBudget={shopsWithBudgets.find(s => s.shop === selectedShop)?.budget || null}
-              weekOrders={shopsWithBudgets.find(s => s.shop === selectedShop)?.orders || []}
-              weekStartStr={weekStartStr}
+              currentBudget={weeklyBudgets.find(b => b.shop === selectedShop && b.week_start_date === getCurrentWeekMonday()) || null}
+              weekOrders={orders.filter(o => {
+                const orderDate = new Date(o.order_date);
+                const weekMonday = new Date(getCurrentWeekMonday());
+                const weekSunday = getSunday(weekMonday);
+                return o.shop === selectedShop && orderDate >= weekMonday && orderDate <= weekSunday;
+              })}
+              weekStartStr={getCurrentWeekMonday()}
               onBudgetUpdate={handleBudgetUpdate}
             />
           )}
@@ -418,9 +612,14 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         <div>
           <WeeklyBudgetReport
             shop={selectedShop}
-            currentBudget={shopsWithBudgets.find(s => s.shop === selectedShop)?.budget || null}
-            weekOrders={shopsWithBudgets.find(s => s.shop === selectedShop)?.orders || []}
-            weekStartStr={weekStartStr}
+            currentBudget={weeklyBudgets.find(b => b.shop === selectedShop && b.week_start_date === getCurrentWeekMonday()) || null}
+            weekOrders={orders.filter(o => {
+              const orderDate = new Date(o.order_date);
+              const weekMonday = new Date(getCurrentWeekMonday());
+              const weekSunday = getSunday(weekMonday);
+              return o.shop === selectedShop && orderDate >= weekMonday && orderDate <= weekSunday;
+            })}
+            weekStartStr={getCurrentWeekMonday()}
           />
         </div>
       )}
@@ -459,7 +658,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         <CardHeader>
           <CardTitle>Order List</CardTitle>
           <CardDescription>
-            {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders
+            {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders for {selectedWeek}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -516,7 +715,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           </Table>
           {filteredOrders.length === 0 && (
             <div className="py-12 text-center text-muted-foreground">
-              No orders found. Create your first order to get started.
+              No orders found for the selected week. Create your first order to get started.
             </div>
           )}
         </CardContent>
