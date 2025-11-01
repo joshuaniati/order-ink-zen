@@ -202,40 +202,28 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     return { lastWeekMonday, lastWeekSunday, thisWeekMonday };
   };
 
-  // Calculate last week's orders delivered this week
+  // Calculate last week's orders delivered this week (ONLY for selected shop)
   const calculateLastWeekOrdersDeliveredThisWeek = () => {
     const { lastWeekMonday, lastWeekSunday, thisWeekMonday } = getLastWeekDates();
     const thisWeekSunday = getSunday(thisWeekMonday);
     
-    let lastWeekOrders: Order[] = [];
-    
-    if (selectedShop === "All") {
-      lastWeekOrders = orders.filter(order => {
-        const orderDate = new Date(order.order_date);
-        const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
-        
-        // Order was placed last week and delivered this week
-        return orderDate >= lastWeekMonday && 
-               orderDate <= lastWeekSunday && 
-               deliveryDate &&
-               deliveryDate >= thisWeekMonday && 
-               deliveryDate <= thisWeekSunday &&
-               order.status === "Delivered";
-      });
-    } else {
-      lastWeekOrders = orders.filter(order => {
-        const orderDate = new Date(order.order_date);
-        const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
-        
-        return order.shop === selectedShop &&
-               orderDate >= lastWeekMonday && 
-               orderDate <= lastWeekSunday && 
-               deliveryDate &&
-               deliveryDate >= thisWeekMonday && 
-               deliveryDate <= thisWeekSunday &&
-               order.status === "Delivered";
-      });
-    }
+    // Filter orders: placed last week, delivered this week, from selected shop
+    const lastWeekOrders = orders.filter(order => {
+      const orderDate = new Date(order.order_date);
+      const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
+      
+      // Shop filter (always apply unless "All" is selected)
+      const shopMatches = selectedShop === "All" || order.shop === selectedShop;
+      
+      // Order was placed last week and delivered this week
+      return shopMatches &&
+             orderDate >= lastWeekMonday && 
+             orderDate <= lastWeekSunday && 
+             deliveryDate &&
+             deliveryDate >= thisWeekMonday && 
+             deliveryDate <= thisWeekSunday &&
+             order.status === "Delivered";
+    });
 
     return {
       orders: lastWeekOrders,
@@ -243,34 +231,25 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     };
   };
 
-  // Calculate ALL orders delivered this week (regardless of when they were ordered)
+  // Calculate ALL orders delivered this week (ONLY for selected shop)
   const calculateThisWeekDelivered = () => {
     const thisWeekMonday = new Date(getCurrentWeekMonday());
     const thisWeekSunday = getSunday(thisWeekMonday);
     
-    let thisWeekDelivered: Order[] = [];
-    
-    if (selectedShop === "All") {
-      thisWeekDelivered = orders.filter(order => {
-        const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
-        
-        // ANY order delivered this week (regardless of order date)
-        return deliveryDate &&
-               deliveryDate >= thisWeekMonday && 
-               deliveryDate <= thisWeekSunday &&
-               order.status === "Delivered";
-      });
-    } else {
-      thisWeekDelivered = orders.filter(order => {
-        const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
-        
-        return order.shop === selectedShop &&
-               deliveryDate &&
-               deliveryDate >= thisWeekMonday && 
-               deliveryDate <= thisWeekSunday &&
-               order.status === "Delivered";
-      });
-    }
+    // Filter orders: delivered this week, from selected shop (regardless of order date)
+    const thisWeekDelivered = orders.filter(order => {
+      const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
+      
+      // Shop filter (always apply unless "All" is selected)
+      const shopMatches = selectedShop === "All" || order.shop === selectedShop;
+      
+      // ANY order delivered this week (regardless of order date)
+      return shopMatches &&
+             deliveryDate &&
+             deliveryDate >= thisWeekMonday && 
+             deliveryDate <= thisWeekSunday &&
+             order.status === "Delivered";
+    });
 
     return {
       orders: thisWeekDelivered,
