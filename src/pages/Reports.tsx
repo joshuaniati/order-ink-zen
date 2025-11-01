@@ -83,21 +83,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
     fetchData();
   }, []);
 
-  const handlePrintCurrent = () => {
-    toast.info("Printing current view...");
-    window.print();
-  };
-
-  const handlePrintCustom = () => {
-    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
-      toast.error("Start date must be before end date");
-      return;
-    }
-    toast.info("Generating custom report...");
-    setTimeout(() => window.print(), 100);
-  };
-
-  // Get filtered data
+  // Get filtered data based on selections
   const filteredSupplies = supplies.filter(s => 
     (reportShop === "All" || s.shop === reportShop)
   );
@@ -120,6 +106,298 @@ const Reports = ({ selectedShop }: ReportsProps) => {
   const totalExpenses = filteredIncome.reduce((sum, r) => sum + r.expenses, 0);
   const totalNet = filteredIncome.reduce((sum, r) => sum + r.net_income, 0);
   const totalOrders = filteredOrders.reduce((sum, o) => sum + o.order_amount, 0);
+
+  const handlePrintCustom = () => {
+    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+      toast.error("Start date must be before end date");
+      return;
+    }
+
+    // Create print content based on selected options
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error("Please allow pop-ups to print the report");
+      return;
+    }
+
+    let printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Business Report</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px;
+              color: #333;
+              font-size: 12px;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px;
+              border-bottom: 2px solid #333;
+              padding-bottom: 20px;
+            }
+            .report-title { 
+              font-size: 24px; 
+              font-weight: bold;
+              margin-bottom: 10px;
+            }
+            .report-meta { 
+              font-size: 14px;
+              color: #666;
+              margin-bottom: 5px;
+            }
+            .summary-cards {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 15px;
+              margin-bottom: 30px;
+            }
+            .summary-card {
+              border: 1px solid #ddd;
+              padding: 15px;
+              text-align: center;
+              border-radius: 4px;
+            }
+            .summary-value {
+              font-size: 18px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .summary-label {
+              font-size: 11px;
+              color: #666;
+            }
+            .section {
+              margin-bottom: 30px;
+              page-break-inside: avoid;
+            }
+            .section-title {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 15px;
+              border-bottom: 1px solid #333;
+              padding-bottom: 5px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+              font-size: 11px;
+            }
+            th, td {
+              border: 1px solid #ddd;
+              padding: 8px 6px;
+              text-align: left;
+            }
+            th {
+              background-color: #f5f5f5;
+              font-weight: bold;
+            }
+            .total-row {
+              background-color: #f0f0f0;
+              font-weight: bold;
+            }
+            .no-data {
+              text-align: center;
+              padding: 20px;
+              color: #666;
+              font-style: italic;
+            }
+            @media print {
+              body { margin: 15px; }
+              .section { page-break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="report-title">Business Report</div>
+            <div class="report-meta">Generated on: ${new Date().toLocaleDateString()}</div>
+            <div class="report-meta">Shop: ${reportShop === "All" ? "All Shops" : reportShop}</div>
+            ${startDate && endDate ? `<div class="report-meta">Period: ${startDate} to ${endDate}</div>` : ''}
+            <div class="report-meta">Report Includes: ${[
+              includeSupplies && "Supplies",
+              includeOrders && "Orders", 
+              includeIncome && "Income Records"
+            ].filter(Boolean).join(', ')}</div>
+          </div>
+    `;
+
+    // Add summary cards
+    printContent += `
+      <div class="summary-cards">
+        ${includeSupplies ? `
+          <div class="summary-card">
+            <div class="summary-value">${filteredSupplies.length}</div>
+            <div class="summary-label">Total Supplies</div>
+          </div>
+        ` : ''}
+        ${includeOrders ? `
+          <div class="summary-card">
+            <div class="summary-value">${formatCurrency(totalOrders)}</div>
+            <div class="summary-label">Total Orders</div>
+          </div>
+        ` : ''}
+        ${includeIncome ? `
+          <div class="summary-card">
+            <div class="summary-value">${formatCurrency(totalIncome)}</div>
+            <div class="summary-label">Total Income</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-value">${formatCurrency(totalNet)}</div>
+            <div class="summary-label">Net Profit</div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    // Add supplies section if selected
+    if (includeSupplies && filteredSupplies.length > 0) {
+      printContent += `
+        <div class="section">
+          <div class="section-title">Supplies Inventory</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Amount</th>
+                <th>Phone Number</th>
+                <th>Shop</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredSupplies.map(supply => `
+                <tr>
+                  <td>${supply.name || 'N/A'}</td>
+                  <td>${supply.amount || 'N/A'}</td>
+                  <td>${supply.phone_number || 'N/A'}</td>
+                  <td>${supply.shop || 'N/A'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else if (includeSupplies) {
+      printContent += `
+        <div class="section">
+          <div class="section-title">Supplies Inventory</div>
+          <div class="no-data">No supplies data found for the selected filters</div>
+        </div>
+      `;
+    }
+
+    // Add orders section if selected
+    if (includeOrders && filteredOrders.length > 0) {
+      printContent += `
+        <div class="section">
+          <div class="section-title">Orders Summary</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Supply</th>
+                <th>Date</th>
+                <th>Contact Person</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Shop</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredOrders.map(order => `
+                <tr>
+                  <td>${order.supply_name || 'N/A'}</td>
+                  <td>${order.order_date || 'N/A'}</td>
+                  <td>${order.contact_person || 'N/A'}</td>
+                  <td>${formatCurrency(order.order_amount || 0)}</td>
+                  <td>${order.status || 'N/A'}</td>
+                  <td>${order.shop || 'N/A'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else if (includeOrders) {
+      printContent += `
+        <div class="section">
+          <div class="section-title">Orders Summary</div>
+          <div class="no-data">No orders data found for the selected filters</div>
+        </div>
+      `;
+    }
+
+    // Add income section if selected
+    if (includeIncome && filteredIncome.length > 0) {
+      printContent += `
+        <div class="section">
+          <div class="section-title">Income Records</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Shop</th>
+                <th>Daily Income</th>
+                <th>Expenses</th>
+                <th>Net Income</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredIncome.map(record => `
+                <tr>
+                  <td>${record.date || 'N/A'}</td>
+                  <td>${record.shop || 'N/A'}</td>
+                  <td>${formatCurrency(record.daily_income || 0)}</td>
+                  <td>${formatCurrency(record.expenses || 0)}</td>
+                  <td>${formatCurrency(record.net_income || 0)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr class="total-row">
+                <td colspan="2"><strong>Totals</strong></td>
+                <td><strong>${formatCurrency(totalIncome)}</strong></td>
+                <td><strong>${formatCurrency(totalExpenses)}</strong></td>
+                <td><strong>${formatCurrency(totalNet)}</strong></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+    } else if (includeIncome) {
+      printContent += `
+        <div class="section">
+          <div class="section-title">Income Records</div>
+          <div class="no-data">No income data found for the selected filters</div>
+        </div>
+      `;
+    }
+
+    // Close the HTML
+    printContent += `
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => {
+                window.close();
+              }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    toast.success("Generating custom report...");
+  };
+
+  const handlePrintCurrent = () => {
+    toast.info("Printing current view...");
+    setTimeout(() => window.print(), 100);
+  };
 
   if (loading) {
     return (
@@ -239,162 +517,195 @@ const Reports = ({ selectedShop }: ReportsProps) => {
           {reportShop !== "All" && ` - ${reportShop}`}
           {startDate && endDate && ` - ${startDate} to ${endDate}`}
         </p>
+        <p className="text-sm text-gray-600">
+          Report Includes: {[
+            includeSupplies && "Supplies",
+            includeOrders && "Orders", 
+            includeIncome && "Income Records"
+          ].filter(Boolean).join(', ')}
+        </p>
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4 print:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Supplies</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredSupplies.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalOrders)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Income</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalIncome)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalNet)}</div>
-          </CardContent>
-        </Card>
+        {includeSupplies && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Supplies</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{filteredSupplies.length}</div>
+            </CardContent>
+          </Card>
+        )}
+        {includeOrders && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(totalOrders)}</div>
+            </CardContent>
+          </Card>
+        )}
+        {includeIncome && (
+          <>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Total Income</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(totalIncome)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(totalNet)}</div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Supplies Section */}
-      {includeSupplies && filteredSupplies.length > 0 && (
+      {includeSupplies && (
         <Card className="print:break-inside-avoid">
           <CardHeader>
             <CardTitle>Supplies Inventory</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2">Name</th>
-                    <th className="text-left p-2">Amount</th>
-                    <th className="text-left p-2">Phone Number</th>
-                    <th className="text-left p-2">Shop</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSupplies.map((supply) => (
-                    <tr key={supply.id} className="border-b">
-                      <td className="p-2">{supply.name}</td>
-                      <td className="p-2">{supply.amount}</td>
-                      <td className="p-2">{supply.phone_number}</td>
-                      <td className="p-2">{supply.shop}</td>
+            {filteredSupplies.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2">Name</th>
+                      <th className="text-left p-2">Amount</th>
+                      <th className="text-left p-2">Phone Number</th>
+                      <th className="text-left p-2">Shop</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredSupplies.map((supply) => (
+                      <tr key={supply.id} className="border-b">
+                        <td className="p-2">{supply.name}</td>
+                        <td className="p-2">{supply.amount}</td>
+                        <td className="p-2">{supply.phone_number}</td>
+                        <td className="p-2">{supply.shop}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No supplies found for the selected filters
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Orders Section */}
-      {includeOrders && filteredOrders.length > 0 && (
+      {includeOrders && (
         <Card className="print:break-inside-avoid">
           <CardHeader>
             <CardTitle>Orders Summary</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2">Supply</th>
-                    <th className="text-left p-2">Date</th>
-                    <th className="text-left p-2">Contact Person</th>
-                    <th className="text-left p-2">Amount</th>
-                    <th className="text-left p-2">Status</th>
-                    <th className="text-left p-2">Shop</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOrders.map((order) => (
-                    <tr key={order.id} className="border-b">
-                      <td className="p-2">{order.supply_name}</td>
-                      <td className="p-2">{order.order_date}</td>
-                      <td className="p-2">{order.contact_person}</td>
-                      <td className="p-2">{order.order_amount}</td>
-                      <td className="p-2">{order.status}</td>
-                      <td className="p-2">{order.shop}</td>
+            {filteredOrders.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2">Supply</th>
+                      <th className="text-left p-2">Date</th>
+                      <th className="text-left p-2">Contact Person</th>
+                      <th className="text-left p-2">Amount</th>
+                      <th className="text-left p-2">Status</th>
+                      <th className="text-left p-2">Shop</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredOrders.map((order) => (
+                      <tr key={order.id} className="border-b">
+                        <td className="p-2">{order.supply_name}</td>
+                        <td className="p-2">{order.order_date}</td>
+                        <td className="p-2">{order.contact_person}</td>
+                        <td className="p-2">{formatCurrency(order.order_amount)}</td>
+                        <td className="p-2">{order.status}</td>
+                        <td className="p-2">{order.shop}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No orders found for the selected filters
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Income Section */}
-      {includeIncome && filteredIncome.length > 0 && (
+      {includeIncome && (
         <Card className="print:break-inside-avoid">
           <CardHeader>
             <CardTitle>Income Records</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2">Date</th>
-                    <th className="text-left p-2">Shop</th>
-                    <th className="text-left p-2">Daily Income</th>
-                    <th className="text-left p-2">Expenses</th>
-                    <th className="text-left p-2">Net Income</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredIncome.map((record) => (
-                    <tr key={record.id} className="border-b">
-                      <td className="p-2">{record.date}</td>
-                      <td className="p-2">{record.shop}</td>
-                      <td className="p-2">{formatCurrency(record.daily_income)}</td>
-                      <td className="p-2">{formatCurrency(record.expenses)}</td>
-                      <td className="p-2">{formatCurrency(record.net_income)}</td>
+            {filteredIncome.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2">Date</th>
+                      <th className="text-left p-2">Shop</th>
+                      <th className="text-left p-2">Daily Income</th>
+                      <th className="text-left p-2">Expenses</th>
+                      <th className="text-left p-2">Net Income</th>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t font-bold">
-                    <td className="p-2" colSpan={2}>Totals</td>
-                    <td className="p-2">{formatCurrency(totalIncome)}</td>
-                    <td className="p-2">{formatCurrency(totalExpenses)}</td>
-                    <td className="p-2">{formatCurrency(totalNet)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredIncome.map((record) => (
+                      <tr key={record.id} className="border-b">
+                        <td className="p-2">{record.date}</td>
+                        <td className="p-2">{record.shop}</td>
+                        <td className="p-2">{formatCurrency(record.daily_income)}</td>
+                        <td className="p-2">{formatCurrency(record.expenses)}</td>
+                        <td className="p-2">{formatCurrency(record.net_income)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t font-bold">
+                      <td className="p-2" colSpan={2}>Totals</td>
+                      <td className="p-2">{formatCurrency(totalIncome)}</td>
+                      <td className="p-2">{formatCurrency(totalExpenses)}</td>
+                      <td className="p-2">{formatCurrency(totalNet)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No income records found for the selected filters
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Empty State */}
-      {filteredSupplies.length === 0 && filteredOrders.length === 0 && filteredIncome.length === 0 && (
+      {!includeSupplies && !includeOrders && !includeIncome && (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No data found for the selected filters.</p>
+            <p className="text-muted-foreground">Please select at least one data type to include in the report.</p>
           </CardContent>
         </Card>
       )}
