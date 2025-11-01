@@ -149,7 +149,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     return formatDate(lastWeekMonday);
   };
 
-  // Filter orders based on selected shop AND selected week
+  // Filter orders based on selected shop AND selected week - INCLUDING last week orders delivered this week
   const filteredOrders = (selectedShop === "All" ? orders : orders.filter(o => o.shop === selectedShop))
     .filter(order => {
       if (!selectedWeek) return true;
@@ -158,7 +158,17 @@ const Orders = ({ selectedShop }: OrdersProps) => {
       const weekMonday = new Date(getCurrentWeekMonday());
       const weekSunday = getSunday(weekMonday);
       
-      return orderDate >= weekMonday && orderDate <= weekSunday;
+      // Include orders placed this week OR delivered this week (even if placed last week)
+      const placedThisWeek = orderDate >= weekMonday && orderDate <= weekSunday;
+      
+      // Check if delivered this week (regardless of order date)
+      const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
+      const deliveredThisWeek = deliveryDate && 
+                               deliveryDate >= weekMonday && 
+                               deliveryDate <= weekSunday &&
+                               order.status === "Delivered";
+      
+      return placedThisWeek || deliveredThisWeek;
     });
 
   // Calculate current week's spending for SELECTED SHOP ONLY
@@ -220,23 +230,50 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   const lastWeekBudget = getLastWeekBudget();
   const budgetDifference = currentWeekBudget - currentWeekSpending;
 
-  // Get delivered orders for the current week for each shop
+  // Get delivered orders for the current week for each shop - INCLUDING last week orders delivered this week
   const getWeeklyDeliveredOrders = (shopName: string) => {
     const weekMonday = new Date(getCurrentWeekMonday());
     const weekSunday = getSunday(weekMonday);
     
     return orders.filter(order => {
-      const orderDate = new Date(order.order_date);
-      return order.shop === shopName && 
+      const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
+      const shopMatches = shopName === "All" || order.shop === shopName;
+      
+      return shopMatches && 
              order.status === "Delivered" &&
-             orderDate >= weekMonday && 
-             orderDate <= weekSunday;
+             deliveryDate &&
+             deliveryDate >= weekMonday && 
+             deliveryDate <= weekSunday;
+    });
+  };
+
+  // Get last week orders delivered this week
+  const getLastWeekOrdersDeliveredThisWeek = (shopName: string) => {
+    const weekMonday = new Date(getCurrentWeekMonday());
+    const weekSunday = getSunday(weekMonday);
+    const lastWeekMonday = new Date(weekMonday);
+    lastWeekMonday.setDate(weekMonday.getDate() - 7);
+    const lastWeekSunday = getSunday(lastWeekMonday);
+    
+    return orders.filter(order => {
+      const orderDate = new Date(order.order_date);
+      const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
+      const shopMatches = shopName === "All" || order.shop === shopName;
+      
+      return shopMatches &&
+             orderDate >= lastWeekMonday && 
+             orderDate <= lastWeekSunday && 
+             deliveryDate &&
+             deliveryDate >= weekMonday && 
+             deliveryDate <= weekSunday &&
+             order.status === "Delivered";
     });
   };
 
   // Print weekly delivery list for a specific shop with individual signatures
   const printWeeklyDeliveryList = (shopName: string) => {
     const deliveredOrders = getWeeklyDeliveredOrders(shopName);
+    const lastWeekOrders = getLastWeekOrdersDeliveredThisWeek(shopName);
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -245,6 +282,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     }
 
     const totalAmount = deliveredOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
+    const lastWeekTotal = lastWeekOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -273,6 +311,12 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               font-size: 12px;
               color: #666;
             }
+            .summary { 
+              margin-bottom: 20px;
+              padding: 10px;
+              background-color: #f9f9f9;
+              border-radius: 4px;
+            }
             table { 
               width: 100%; 
               border-collapse: collapse; 
@@ -291,6 +335,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             .total-row { 
               background-color: #f0f0f0; 
               font-weight: bold; 
+            }
+            .last-week-row {
+              background-color: #fff3cd;
             }
             .signature-section {
               display: flex;
@@ -336,47 +383,66 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             <div class="period">Period: ${selectedWeek}</div>
             <div class="period">Generated on: ${new Date().toLocaleDateString()}</div>
           </div>
+
+          <div class="summary">
+            <strong>Summary:</strong><br>
+            - Total Orders Delivered This Week: ${deliveredOrders.length}<br>
+            - Last Week Orders Delivered This Week: ${lastWeekOrders.length}<br>
+            - Total Amount: ${formatCurrency(totalAmount)}<br>
+            - Last Week Orders Total: ${formatCurrency(lastWeekTotal)}
+          </div>
           
           <table>
             <thead>
               <tr>
-                <th style="width: 25%">Supply Name</th>
-                <th style="width: 15%">Date Delivered</th>
-                <th style="width: 15%">Amount (ZAR)</th>
-                <th style="width: 15%">Invoice Number</th>
+                <th style="width: 20%">Supply Name</th>
+                <th style="width: 12%">Order Date</th>
+                <th style="width: 12%">Date Delivered</th>
+                <th style="width: 12%">Amount (ZAR)</th>
+                <th style="width: 14%">Invoice Number</th>
                 <th style="width: 30%">Signatures</th>
               </tr>
             </thead>
             <tbody>
-              ${deliveredOrders.map(order => `
-                <tr class="invoice-row">
-                  <td>${order.supply_name || 'N/A'}</td>
-                  <td>${order.delivery_date || 'N/A'}</td>
-                  <td>${formatCurrency(order.amount_delivered || 0)}</td>
-                  <td>
-                    <div class="invoice-number"></div>
-                  </td>
-                  <td>
-                    <div class="signature-container">
-                      <div>
-                        <div class="signature-line"></div>
-                        <div class="signature-label">Handed Over By</div>
+              ${deliveredOrders.map(order => {
+                const isLastWeekOrder = lastWeekOrders.some(lastWeekOrder => lastWeekOrder.id === order.id);
+                return `
+                  <tr class="invoice-row ${isLastWeekOrder ? 'last-week-row' : ''}">
+                    <td>${order.supply_name || 'N/A'}</td>
+                    <td>${order.order_date || 'N/A'}</td>
+                    <td>${order.delivery_date || 'N/A'}</td>
+                    <td>${formatCurrency(order.amount_delivered || 0)}</td>
+                    <td>
+                      <div class="invoice-number"></div>
+                    </td>
+                    <td>
+                      <div class="signature-container">
+                        <div>
+                          <div class="signature-line"></div>
+                          <div class="signature-label">Handed Over By</div>
+                        </div>
+                        <div>
+                          <div class="signature-line"></div>
+                          <div class="signature-label">Received By</div>
+                        </div>
                       </div>
-                      <div>
-                        <div class="signature-line"></div>
-                        <div class="signature-label">Received By</div>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              `).join('')}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
               <tr class="total-row">
-                <td colspan="2"><strong>Total Amount</strong></td>
+                <td colspan="3"><strong>Total Amount</strong></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
                 <td colspan="2"></td>
               </tr>
             </tbody>
           </table>
+
+          ${lastWeekOrders.length > 0 ? `
+            <div style="margin-top: 20px; padding: 10px; background-color: #fff3cd; border-radius: 4px;">
+              <strong>Note:</strong> ${lastWeekOrders.length} orders marked in yellow were placed last week but delivered this week.
+            </div>
+          ` : ''}
           
           <div style="margin-top: 20px; padding: 15px; border: 1px solid #333; background-color: #f9f9f9;">
             <div style="text-align: center; font-weight: bold; margin-bottom: 10px; font-size: 11px;">FINAL AUTHORIZATION</div>
@@ -425,9 +491,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     
     shops.forEach(shopName => {
       const deliveredOrders = getWeeklyDeliveredOrders(shopName);
+      const lastWeekOrders = getLastWeekOrdersDeliveredThisWeek(shopName);
       if (deliveredOrders.length === 0) return;
       
       const totalAmount = deliveredOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
+      const lastWeekTotal = lastWeekOrders.reduce((sum, order) => sum + (order.amount_delivered || 0), 0);
 
       const shopContent = `
         <div style="page-break-after: always;">
@@ -436,47 +504,66 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             <div class="period">Period: ${selectedWeek}</div>
             <div class="period">Generated on: ${new Date().toLocaleDateString()}</div>
           </div>
+
+          <div class="summary">
+            <strong>Summary:</strong><br>
+            - Total Orders Delivered This Week: ${deliveredOrders.length}<br>
+            - Last Week Orders Delivered This Week: ${lastWeekOrders.length}<br>
+            - Total Amount: ${formatCurrency(totalAmount)}<br>
+            - Last Week Orders Total: ${formatCurrency(lastWeekTotal)}
+          </div>
           
           <table>
             <thead>
               <tr>
-                <th style="width: 25%">Supply Name</th>
-                <th style="width: 15%">Date Delivered</th>
-                <th style="width: 15%">Amount (ZAR)</th>
-                <th style="width: 15%">Invoice Number</th>
+                <th style="width: 20%">Supply Name</th>
+                <th style="width: 12%">Order Date</th>
+                <th style="width: 12%">Date Delivered</th>
+                <th style="width: 12%">Amount (ZAR)</th>
+                <th style="width: 14%">Invoice Number</th>
                 <th style="width: 30%">Signatures</th>
               </tr>
             </thead>
             <tbody>
-              ${deliveredOrders.map(order => `
-                <tr class="invoice-row">
-                  <td>${order.supply_name || 'N/A'}</td>
-                  <td>${order.delivery_date || 'N/A'}</td>
-                  <td>${formatCurrency(order.amount_delivered || 0)}</td>
-                  <td>
-                    <div class="invoice-number"></div>
-                  </td>
-                  <td>
-                    <div class="signature-container">
-                      <div>
-                        <div class="signature-line"></div>
-                        <div class="signature-label">Handed Over By</div>
+              ${deliveredOrders.map(order => {
+                const isLastWeekOrder = lastWeekOrders.some(lastWeekOrder => lastWeekOrder.id === order.id);
+                return `
+                  <tr class="invoice-row ${isLastWeekOrder ? 'last-week-row' : ''}">
+                    <td>${order.supply_name || 'N/A'}</td>
+                    <td>${order.order_date || 'N/A'}</td>
+                    <td>${order.delivery_date || 'N/A'}</td>
+                    <td>${formatCurrency(order.amount_delivered || 0)}</td>
+                    <td>
+                      <div class="invoice-number"></div>
+                    </td>
+                    <td>
+                      <div class="signature-container">
+                        <div>
+                          <div class="signature-line"></div>
+                          <div class="signature-label">Handed Over By</div>
+                        </div>
+                        <div>
+                          <div class="signature-line"></div>
+                          <div class="signature-label">Received By</div>
+                        </div>
                       </div>
-                      <div>
-                        <div class="signature-line"></div>
-                        <div class="signature-label">Received By</div>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              `).join('')}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
               <tr class="total-row">
-                <td colspan="2"><strong>Total Amount</strong></td>
+                <td colspan="3"><strong>Total Amount</strong></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
                 <td colspan="2"></td>
               </tr>
             </tbody>
           </table>
+
+          ${lastWeekOrders.length > 0 ? `
+            <div style="margin-top: 20px; padding: 10px; background-color: #fff3cd; border-radius: 4px;">
+              <strong>Note:</strong> ${lastWeekOrders.length} orders marked in yellow were placed last week but delivered this week.
+            </div>
+          ` : ''}
           
           <div style="margin-top: 20px; padding: 15px; border: 1px solid #333; background-color: #f9f9f9;">
             <div style="text-align: center; font-weight: bold; margin-bottom: 10px; font-size: 11px;">FINAL AUTHORIZATION</div>
@@ -530,6 +617,12 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               font-size: 12px;
               color: #666;
             }
+            .summary { 
+              margin-bottom: 20px;
+              padding: 10px;
+              background-color: #f9f9f9;
+              border-radius: 4px;
+            }
             table { 
               width: 100%; 
               border-collapse: collapse; 
@@ -548,6 +641,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             .total-row { 
               background-color: #f0f0f0; 
               font-weight: bold; 
+            }
+            .last-week-row {
+              background-color: #fff3cd;
             }
             .signature-section {
               display: flex;
@@ -986,6 +1082,50 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       </Card>
 
+      {/* Delivery Report Section */}
+      {getLastWeekOrdersDeliveredThisWeek(selectedShop).length > 0 && (
+        <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="text-amber-700 dark:text-amber-300">
+                📦 Last Week Orders Delivered This Week
+              </span>
+              <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
+                {getLastWeekOrdersDeliveredThisWeek(selectedShop).length} orders
+              </Badge>
+            </CardTitle>
+            <CardDescription className="text-amber-600 dark:text-amber-400">
+              Orders placed last week but delivered during {selectedWeek}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {getLastWeekOrdersDeliveredThisWeek(selectedShop).map((order) => (
+                <div key={order.id} className="flex justify-between items-center p-3 bg-white dark:bg-gray-900 rounded-lg border border-amber-200">
+                  <div>
+                    <div className="font-medium">{order.supply_name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Ordered: {order.order_date} | Delivered: {order.delivery_date}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold">{formatCurrency(order.amount_delivered)}</div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEdit(order)}
+                      className="h-6 w-6 p-0 mt-1"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Weekly Budgets Section - More Compact */}
       <div className="space-y-2">
         <h3 className="text-base font-semibold">
@@ -1086,6 +1226,10 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <CardTitle className="text-base">Order List</CardTitle>
           <CardDescription className="text-xs">
             {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders for {selectedWeek}
+            <br />
+            <span className="text-amber-600">
+              Includes orders placed last week but delivered this week
+            </span>
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -1094,6 +1238,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               <TableRow>
                 <TableHead className="py-2">Supply</TableHead>
                 <TableHead className="py-2">Order Date</TableHead>
+                <TableHead className="py-2">Delivery Date</TableHead>
                 <TableHead className="py-2">Ordered By</TableHead>
                 <TableHead className="py-2">Amount</TableHead>
                 <TableHead className="py-2">Status</TableHead>
@@ -1101,35 +1246,45 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrders.map((order) => (
-                <TableRow key={order.id} className="h-12">
-                  <TableCell className="py-2 font-medium">{order.supply_name}</TableCell>
-                  <TableCell className="py-2">{order.order_date}</TableCell>
-                  <TableCell className="py-2">{order.ordered_by}</TableCell>
-                  <TableCell className="py-2">{formatCurrency(order.order_amount)}</TableCell>
-                  <TableCell className="py-2">{getStatusBadge(order.status)}</TableCell>
-                  <TableCell className="py-2 text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(order)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(order.id)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {filteredOrders.map((order) => {
+                const isLastWeekOrder = getLastWeekOrdersDeliveredThisWeek(selectedShop).some(
+                  lastWeekOrder => lastWeekOrder.id === order.id
+                );
+                
+                return (
+                  <TableRow key={order.id} className={`h-12 ${isLastWeekOrder ? 'bg-amber-50' : ''}`}>
+                    <TableCell className="py-2 font-medium">{order.supply_name}</TableCell>
+                    <TableCell className="py-2">
+                      {order.order_date}
+                      {isLastWeekOrder && <Badge variant="outline" className="ml-1 bg-amber-100 text-amber-800 text-xs">Last Week</Badge>}
+                    </TableCell>
+                    <TableCell className="py-2">{order.delivery_date}</TableCell>
+                    <TableCell className="py-2">{order.ordered_by}</TableCell>
+                    <TableCell className="py-2">{formatCurrency(order.order_amount)}</TableCell>
+                    <TableCell className="py-2">{getStatusBadge(order.status)}</TableCell>
+                    <TableCell className="py-2 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(order)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(order.id)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
           {filteredOrders.length === 0 && (
