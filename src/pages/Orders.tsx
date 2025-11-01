@@ -254,32 +254,34 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <style>
             body { 
               font-family: Arial, sans-serif; 
-              margin: 20px;
+              margin: 15px;
               color: #333;
+              font-size: 12px;
             }
             .header { 
               text-align: center; 
-              margin-bottom: 30px;
-              border-bottom: 2px solid #333;
-              padding-bottom: 20px;
+              margin-bottom: 20px;
+              border-bottom: 1px solid #333;
+              padding-bottom: 15px;
             }
             .shop-name { 
-              font-size: 24px; 
+              font-size: 18px; 
               font-weight: bold;
-              margin-bottom: 10px;
+              margin-bottom: 5px;
             }
             .period { 
-              font-size: 16px;
+              font-size: 12px;
               color: #666;
             }
             table { 
               width: 100%; 
               border-collapse: collapse; 
-              margin-bottom: 30px;
+              margin-bottom: 20px;
+              font-size: 11px;
             }
             th, td { 
               border: 1px solid #ddd; 
-              padding: 12px; 
+              padding: 6px 4px; 
               text-align: left; 
             }
             th { 
@@ -293,36 +295,36 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             .signature-section {
               display: flex;
               justify-content: space-between;
-              margin-top: 20px;
-              padding: 10px;
+              margin-top: 15px;
+              padding: 8px;
               border: 1px solid #ddd;
             }
             .signature-line {
               border-top: 1px solid #333;
-              width: 180px;
-              margin-top: 40px;
+              width: 150px;
+              margin-top: 30px;
             }
             .signature-label {
-              margin-top: 5px;
-              font-size: 12px;
+              margin-top: 3px;
+              font-size: 10px;
               text-align: center;
             }
             .invoice-row {
-              border-bottom: 2px solid #333;
+              border-bottom: 1px solid #333;
             }
             .signature-container {
               display: flex;
               justify-content: space-between;
-              margin-top: 10px;
+              margin-top: 5px;
             }
             .invoice-number {
-              height: 20px;
+              height: 15px;
               border-bottom: 1px solid #333;
-              min-width: 100px;
+              min-width: 80px;
               display: inline-block;
             }
             @media print {
-              body { margin: 0; }
+              body { margin: 10px; }
               .no-print { display: none; }
               .invoice-row { page-break-inside: avoid; }
             }
@@ -338,11 +340,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <table>
             <thead>
               <tr>
-                <th>Supply Name</th>
-                <th>Date Delivered</th>
-                <th>Amount (ZAR)</th>
-                <th>Invoice Number</th>
-                <th>Signatures</th>
+                <th style="width: 25%">Supply Name</th>
+                <th style="width: 15%">Date Delivered</th>
+                <th style="width: 15%">Amount (ZAR)</th>
+                <th style="width: 15%">Invoice Number</th>
+                <th style="width: 30%">Signatures</th>
               </tr>
             </thead>
             <tbody>
@@ -369,30 +371,28 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 </tr>
               `).join('')}
               <tr class="total-row">
-                <td><strong>Total Amount</strong></td>
-                <td></td>
+                <td colspan="2"><strong>Total Amount</strong></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
-                <td></td>
-                <td></td>
+                <td colspan="2"></td>
               </tr>
             </tbody>
           </table>
           
-          <div style="margin-top: 30px; padding: 20px; border: 1px solid #333; background-color: #f9f9f9;">
-            <div style="text-align: center; font-weight: bold; margin-bottom: 15px;">FINAL AUTHORIZATION</div>
+          <div style="margin-top: 20px; padding: 15px; border: 1px solid #333; background-color: #f9f9f9;">
+            <div style="text-align: center; font-weight: bold; margin-bottom: 10px; font-size: 11px;">FINAL AUTHORIZATION</div>
             <div class="signature-section">
               <div>
-                <div class="signature-line" style="width: 250px;"></div>
+                <div class="signature-line" style="width: 200px;"></div>
                 <div class="signature-label">Manager/Authorized Signatory</div>
               </div>
               <div>
-                <div class="signature-line" style="width: 250px;"></div>
+                <div class="signature-line" style="width: 200px;"></div>
                 <div class="signature-label">Accounting Department</div>
               </div>
             </div>
           </div>
           
-          <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
+          <div style="margin-top: 15px; font-size: 10px; color: #666; text-align: center;">
             This document is for accounting department payment processing<br>
             All individual invoices must be signed by both parties<br>
             Invoice numbers to be filled manually during payment processing
@@ -440,11 +440,11 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <table>
             <thead>
               <tr>
-                <th>Supply Name</th>
-                <th>Date Delivered</th>
-                <th>Amount (ZAR)</th>
-                <th>Invoice Number</th>
-                <th>Signatures</th>
+                <th style="width: 25%">Supply Name</th>
+                <th style="width: 15%">Date Delivered</th>
+                <th style="width: 15%">Amount (ZAR)</th>
+                <th style="width: 15%">Invoice Number</th>
+                <th style="width: 30%">Signatures</th>
               </tr>
             </thead>
             <tbody>
@@ -471,30 +471,28 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 </tr>
               `).join('')}
               <tr class="total-row">
-                <td><strong>Total Amount</strong></td>
-                <td></td>
+                <td colspan="2"><strong>Total Amount</strong></td>
                 <td><strong>${formatCurrency(totalAmount)}</strong></td>
-                <td></td>
-                <td></td>
+                <td colspan="2"></td>
               </tr>
             </tbody>
           </table>
           
-          <div style="margin-top: 30px; padding: 20px; border: 1px solid #333; background-color: #f9f9f9;">
-            <div style="text-align: center; font-weight: bold; margin-bottom: 15px;">FINAL AUTHORIZATION</div>
+          <div style="margin-top: 20px; padding: 15px; border: 1px solid #333; background-color: #f9f9f9;">
+            <div style="text-align: center; font-weight: bold; margin-bottom: 10px; font-size: 11px;">FINAL AUTHORIZATION</div>
             <div class="signature-section">
               <div>
-                <div class="signature-line" style="width: 250px;"></div>
+                <div class="signature-line" style="width: 200px;"></div>
                 <div class="signature-label">Manager/Authorized Signatory</div>
               </div>
               <div>
-                <div class="signature-line" style="width: 250px;"></div>
+                <div class="signature-line" style="width: 200px;"></div>
                 <div class="signature-label">Accounting Department</div>
               </div>
             </div>
           </div>
           
-          <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
+          <div style="margin-top: 15px; font-size: 10px; color: #666; text-align: center;">
             This document is for accounting department payment processing<br>
             All individual invoices must be signed by both parties<br>
             Invoice numbers to be filled manually during payment processing
@@ -513,32 +511,34 @@ const Orders = ({ selectedShop }: OrdersProps) => {
           <style>
             body { 
               font-family: Arial, sans-serif; 
-              margin: 20px;
+              margin: 15px;
               color: #333;
+              font-size: 12px;
             }
             .header { 
               text-align: center; 
-              margin-bottom: 30px;
-              border-bottom: 2px solid #333;
-              padding-bottom: 20px;
+              margin-bottom: 20px;
+              border-bottom: 1px solid #333;
+              padding-bottom: 15px;
             }
             .shop-name { 
-              font-size: 24px; 
+              font-size: 18px; 
               font-weight: bold;
-              margin-bottom: 10px;
+              margin-bottom: 5px;
             }
             .period { 
-              font-size: 16px;
+              font-size: 12px;
               color: #666;
             }
             table { 
               width: 100%; 
               border-collapse: collapse; 
-              margin-bottom: 30px;
+              margin-bottom: 20px;
+              font-size: 11px;
             }
             th, td { 
               border: 1px solid #ddd; 
-              padding: 12px; 
+              padding: 6px 4px; 
               text-align: left; 
             }
             th { 
@@ -552,36 +552,36 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             .signature-section {
               display: flex;
               justify-content: space-between;
-              margin-top: 20px;
-              padding: 10px;
+              margin-top: 15px;
+              padding: 8px;
               border: 1px solid #ddd;
             }
             .signature-line {
               border-top: 1px solid #333;
-              width: 180px;
-              margin-top: 40px;
+              width: 150px;
+              margin-top: 30px;
             }
             .signature-label {
-              margin-top: 5px;
-              font-size: 12px;
+              margin-top: 3px;
+              font-size: 10px;
               text-align: center;
             }
             .invoice-row {
-              border-bottom: 2px solid #333;
+              border-bottom: 1px solid #333;
             }
             .signature-container {
               display: flex;
               justify-content: space-between;
-              margin-top: 10px;
+              margin-top: 5px;
             }
             .invoice-number {
-              height: 20px;
+              height: 15px;
               border-bottom: 1px solid #333;
-              min-width: 100px;
+              min-width: 80px;
               display: inline-block;
             }
             @media print {
-              body { margin: 0; }
+              body { margin: 10px; }
               .no-print { display: none; }
               .invoice-row { page-break-inside: avoid; }
             }
@@ -822,7 +822,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Week Selection Dialog */}
       <Dialog open={isWeekSelectOpen} onOpenChange={setIsWeekSelectOpen}>
         <DialogContent className="sm:max-w-md">
@@ -886,20 +886,21 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </DialogContent>
       </Dialog>
 
+      {/* Header Section - More Compact */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Orders</h2>
-          <p className="text-muted-foreground">Manage purchase orders and deliveries</p>
-          <div className="flex items-center gap-2 mt-2">
-            <Badge variant="outline" className="text-sm">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold tracking-tight">Orders</h2>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">
               {selectedWeek}
             </Badge>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsWeekSelectOpen(true)}
+              className="h-7 text-xs"
             >
-              <Calendar className="h-4 w-4 mr-2" />
+              <Calendar className="h-3 w-3 mr-1" />
               Change Week
             </Button>
           </div>
@@ -911,141 +912,219 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               variant="outline" 
               onClick={printAllShopsWeeklyDelivery}
               disabled={shops.every(shop => getWeeklyDeliveredOrders(shop).length === 0)}
+              size="sm"
             >
-              <Printer className="mr-2 h-4 w-4" />
-              Print All Weekly Delivery Lists
+              <Printer className="mr-2 h-3 w-3" />
+              Print All Lists
             </Button>
           ) : (
             <Button 
               variant="outline" 
               onClick={() => printWeeklyDeliveryList(selectedShop)}
               disabled={getWeeklyDeliveredOrders(selectedShop).length === 0}
+              size="sm"
             >
-              <Printer className="mr-2 h-4 w-4" />
-              Print Weekly Delivery List
+              <Printer className="mr-2 h-3 w-3" />
+              Print List
             </Button>
           )}
           
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
+          <Button onClick={() => setIsDialogOpen(true)} size="sm">
+            <Plus className="mr-2 h-3 w-3" />
             Create Order
           </Button>
         </div>
       </div>
 
-      {/* Current Week Budget Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Weekly Budget Overview</span>
-            <div className="flex items-center gap-2">
-              <Badge variant={budgetDifference >= 0 ? "default" : "destructive"}>
-                {budgetDifference >= 0 ? "Under Budget" : "Over Budget"}
-              </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleEditBudget(null)}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Set Budget
-              </Button>
+      {/* Current Week Budget Overview - More Compact */}
+      <Card className="p-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="text-center space-y-1">
+            <div className="text-lg font-bold text-green-600">
+              {formatCurrency(currentWeekBudget)}
             </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(currentWeekBudget)}
-              </div>
-              <div className="text-sm text-muted-foreground">Weekly Budget</div>
+            <div className="text-xs text-muted-foreground">Weekly Budget</div>
+          </div>
+          <div className="text-center space-y-1">
+            <div className="text-lg font-bold text-blue-600">
+              {formatCurrency(currentWeekSpending)}
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {formatCurrency(currentWeekSpending)}
-              </div>
-              <div className="text-sm text-muted-foreground">Current Spending</div>
+            <div className="text-xs text-muted-foreground">Current Spending</div>
+          </div>
+          <div className="text-center space-y-1">
+            <div className={`text-lg font-bold ${
+              budgetDifference >= 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {formatCurrency(Math.abs(budgetDifference))}
             </div>
-            <div className="text-center">
-              <div className={`text-2xl font-bold ${
-                budgetDifference >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {formatCurrency(Math.abs(budgetDifference))}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {budgetDifference >= 0 ? 'Remaining' : 'Over Budget'}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
-                {formatCurrency(lastWeekBudget)}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Last Week's Budget
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-2 h-6 w-6 p-0"
-                  onClick={() => {
-                    const lastWeekMonday = getLastWeekMonday();
-                    const lastWeekBudget = weeklyBudgets.find(
-                      b => b.shop === selectedShop && b.week_start_date === lastWeekMonday
-                    );
-                    handleEditBudget(lastWeekBudget || null, lastWeekMonday);
-                  }}
-                >
-                  <Edit className="h-3 w-3" />
-                </Button>
-              </div>
+            <div className="text-xs text-muted-foreground">
+              {budgetDifference >= 0 ? 'Remaining' : 'Over Budget'}
             </div>
           </div>
-        </CardContent>
+          <div className="text-center space-y-1">
+            <div className="text-lg font-bold text-purple-600">
+              {formatCurrency(lastWeekBudget)}
+            </div>
+            <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+              Last Week
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0"
+                onClick={() => {
+                  const lastWeekMonday = getLastWeekMonday();
+                  const lastWeekBudget = weeklyBudgets.find(
+                    b => b.shop === selectedShop && b.week_start_date === lastWeekMonday
+                  );
+                  handleEditBudget(lastWeekBudget || null, lastWeekMonday);
+                }}
+              >
+                <Edit className="h-2.5 w-2.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
       </Card>
 
-      {/* Order List */}
+      {/* Weekly Budgets Section - More Compact */}
+      <div className="space-y-2">
+        <h3 className="text-base font-semibold">
+          {selectedShop === "All" ? "Weekly Budgets - All Shops" : `Weekly Budget - ${selectedShop}`}
+        </h3>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {selectedShop === "All" ? (
+            shops.map((shop) => {
+              const budget = weeklyBudgets.find(b => b.shop === shop && b.week_start_date === getCurrentWeekMonday());
+              const shopWeekOrders = orders.filter(o => {
+                const orderDate = new Date(o.order_date);
+                const weekMonday = new Date(getCurrentWeekMonday());
+                const weekSunday = getSunday(weekMonday);
+                return o.shop === shop && orderDate >= weekMonday && orderDate <= weekSunday;
+              });
+              
+              return (
+                <WeeklyBudgetCard
+                  key={shop}
+                  shop={shop}
+                  currentBudget={budget || null}
+                  weekOrders={shopWeekOrders}
+                  weekStartStr={getCurrentWeekMonday()}
+                  onBudgetUpdate={handleBudgetUpdate}
+                  onEditBudget={handleEditBudget}
+                />
+              );
+            })
+          ) : (
+            <WeeklyBudgetCard
+              shop={selectedShop}
+              currentBudget={weeklyBudgets.find(b => b.shop === selectedShop && b.week_start_date === getCurrentWeekMonday()) || null}
+              weekOrders={orders.filter(o => {
+                const orderDate = new Date(o.order_date);
+                const weekMonday = new Date(getCurrentWeekMonday());
+                const weekSunday = getSunday(weekMonday);
+                return o.shop === selectedShop && orderDate >= weekMonday && orderDate <= weekSunday;
+              })}
+              weekStartStr={getCurrentWeekMonday()}
+              onBudgetUpdate={handleBudgetUpdate}
+              onEditBudget={handleEditBudget}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Weekly Budget Report - Printable */}
+      {selectedShop !== "All" && (
+        <div className="mt-2">
+          <WeeklyBudgetReport
+            shop={selectedShop}
+            currentBudget={weeklyBudgets.find(b => b.shop === selectedShop && b.week_start_date === getCurrentWeekMonday()) || null}
+            weekOrders={orders.filter(o => {
+              const orderDate = new Date(o.order_date);
+              const weekMonday = new Date(getCurrentWeekMonday());
+              const weekSunday = getSunday(weekMonday);
+              return o.shop === selectedShop && orderDate >= weekMonday && orderDate <= weekSunday;
+            })}
+            weekStartStr={getCurrentWeekMonday()}
+          />
+        </div>
+      )}
+
+      {/* Stats Cards - More Compact */}
+      <div className="grid gap-3 md:grid-cols-3">
+        <Card className="p-4">
+          <div className="space-y-1">
+            <div className="text-lg font-bold">{pendingOrders.length}</div>
+            <div className="text-xs text-muted-foreground">Pending Orders</div>
+            <div className="text-xs text-blue-600">
+              {formatCurrency(pendingOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0))} total
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="space-y-1">
+            <div className="text-lg font-bold">{partialOrders.length}</div>
+            <div className="text-xs text-muted-foreground">Partial Deliveries</div>
+            <div className="text-xs text-orange-600">
+              {formatCurrency(partialOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0))} ordered
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="space-y-1">
+            <div className="text-lg font-bold">{deliveredOrders.length}</div>
+            <div className="text-xs text-muted-foreground">Completed</div>
+            <div className="text-xs text-green-600">
+              {formatCurrency(deliveredOrders.reduce((sum, o) => sum + (o.order_amount || 0), 0))} total
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Order List - More Compact */}
       <Card>
-        <CardHeader>
-          <CardTitle>Order List</CardTitle>
-          <CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Order List</CardTitle>
+          <CardDescription className="text-xs">
             {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} orders for {selectedWeek}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Supply</TableHead>
-                <TableHead>Order Date</TableHead>
-                <TableHead>Ordered By</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="py-2">Supply</TableHead>
+                <TableHead className="py-2">Order Date</TableHead>
+                <TableHead className="py-2">Ordered By</TableHead>
+                <TableHead className="py-2">Amount</TableHead>
+                <TableHead className="py-2">Status</TableHead>
+                <TableHead className="py-2 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.supply_name}</TableCell>
-                  <TableCell>{order.order_date}</TableCell>
-                  <TableCell>{order.ordered_by}</TableCell>
-                  <TableCell>{order.order_amount}</TableCell>
-                  <TableCell>{getStatusBadge(order.status)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+                <TableRow key={order.id} className="h-12">
+                  <TableCell className="py-2 font-medium">{order.supply_name}</TableCell>
+                  <TableCell className="py-2">{order.order_date}</TableCell>
+                  <TableCell className="py-2">{order.ordered_by}</TableCell>
+                  <TableCell className="py-2">{formatCurrency(order.order_amount)}</TableCell>
+                  <TableCell className="py-2">{getStatusBadge(order.status)}</TableCell>
+                  <TableCell className="py-2 text-right">
+                    <div className="flex justify-end gap-1">
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => handleEdit(order)}
+                        className="h-8 w-8 p-0"
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="h-3 w-3" />
                       </Button>
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => handleDelete(order.id)}
+                        className="h-8 w-8 p-0"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   </TableCell>
@@ -1054,7 +1133,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             </TableBody>
           </Table>
           {filteredOrders.length === 0 && (
-            <div className="py-12 text-center text-muted-foreground">
+            <div className="py-8 text-center text-muted-foreground text-sm">
               No orders found for the selected week.
             </div>
           )}
@@ -1071,9 +1150,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             <DialogTitle>{editingOrder ? "Edit Order" : "Create New Order"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="supplyId">Select Supply *</Label>
+                <Label htmlFor="supplyId" className="text-sm">Select Supply *</Label>
                 <Select value={formData.supply_id} onValueChange={(value) => setFormData({ ...formData, supply_id: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Choose supply" />
@@ -1088,7 +1167,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="orderDate">Order Date *</Label>
+                <Label htmlFor="orderDate" className="text-sm">Order Date *</Label>
                 <Input
                   type="date"
                   required
@@ -1097,7 +1176,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="orderAmount">Order Amount *</Label>
+                <Label htmlFor="orderAmount" className="text-sm">Order Amount *</Label>
                 <Input
                   type="number"
                   required
@@ -1106,7 +1185,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="shop">Shop *</Label>
+                <Label htmlFor="shop" className="text-sm">Shop *</Label>
                 <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a shop" />
