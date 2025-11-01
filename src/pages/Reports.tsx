@@ -84,9 +84,23 @@ const Reports = ({ selectedShop }: ReportsProps) => {
   }, []);
 
   // Get filtered data based on selections
-  const filteredSupplies = supplies.filter(s => 
-    (reportShop === "All" || s.shop === reportShop)
-  );
+  const filteredSupplies = supplies.filter(s => {
+    const matchesShop = reportShop === "All" || s.shop === reportShop;
+    
+    // For supplies, we need to check if they have any orders within the date range
+    // or if they were created/active during the date range
+    // Since supplies don't have a date field, we'll check their related orders
+    if (startDate || endDate) {
+      const hasOrdersInRange = orders.some(order => 
+        order.supply_id === s.id && 
+        (!startDate || order.order_date >= startDate) && 
+        (!endDate || order.order_date <= endDate)
+      );
+      return matchesShop && hasOrdersInRange;
+    }
+    
+    return matchesShop;
+  });
 
   const filteredOrders = orders.filter(o => {
     const matchesShop = reportShop === "All" || o.shop === reportShop;
@@ -506,6 +520,30 @@ const Reports = ({ selectedShop }: ReportsProps) => {
               </div>
             </div>
           </div>
+
+          {/* Active Filters Display */}
+          {(reportShop !== "All" || startDate || endDate) && (
+            <div className="pt-4 border-t">
+              <Label>Active Filters:</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {reportShop !== "All" && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    Shop: {reportShop}
+                  </span>
+                )}
+                {startDate && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    From: {startDate}
+                  </span>
+                )}
+                {endDate && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                    To: {endDate}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -535,6 +573,9 @@ const Reports = ({ selectedShop }: ReportsProps) => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{filteredSupplies.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {startDate || endDate ? 'Filtered by date range' : 'All supplies'}
+              </p>
             </CardContent>
           </Card>
         )}
@@ -545,6 +586,9 @@ const Reports = ({ selectedShop }: ReportsProps) => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(totalOrders)}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {startDate || endDate ? 'Filtered by date range' : 'All orders'}
+              </p>
             </CardContent>
           </Card>
         )}
@@ -556,6 +600,9 @@ const Reports = ({ selectedShop }: ReportsProps) => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(totalIncome)}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {startDate || endDate ? 'Filtered by date range' : 'All income'}
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -564,6 +611,9 @@ const Reports = ({ selectedShop }: ReportsProps) => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(totalNet)}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {startDate || endDate ? 'Filtered by date range' : 'All records'}
+                </p>
               </CardContent>
             </Card>
           </>
@@ -575,6 +625,12 @@ const Reports = ({ selectedShop }: ReportsProps) => {
         <Card className="print:break-inside-avoid">
           <CardHeader>
             <CardTitle>Supplies Inventory</CardTitle>
+            <CardDescription>
+              {startDate || endDate 
+                ? 'Supplies with orders in the selected date range' 
+                : 'All supplies inventory'
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {filteredSupplies.length > 0 ? (
@@ -602,7 +658,10 @@ const Reports = ({ selectedShop }: ReportsProps) => {
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                No supplies found for the selected filters
+                {startDate || endDate 
+                  ? 'No supplies found with orders in the selected date range' 
+                  : 'No supplies found for the selected shop'
+                }
               </div>
             )}
           </CardContent>
@@ -614,6 +673,12 @@ const Reports = ({ selectedShop }: ReportsProps) => {
         <Card className="print:break-inside-avoid">
           <CardHeader>
             <CardTitle>Orders Summary</CardTitle>
+            <CardDescription>
+              {startDate || endDate 
+                ? `Orders from ${startDate || 'beginning'} to ${endDate || 'now'}`
+                : 'All orders'
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {filteredOrders.length > 0 ? (
@@ -645,7 +710,10 @@ const Reports = ({ selectedShop }: ReportsProps) => {
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                No orders found for the selected filters
+                {startDate || endDate 
+                  ? 'No orders found in the selected date range' 
+                  : 'No orders found for the selected shop'
+                }
               </div>
             )}
           </CardContent>
@@ -657,6 +725,12 @@ const Reports = ({ selectedShop }: ReportsProps) => {
         <Card className="print:break-inside-avoid">
           <CardHeader>
             <CardTitle>Income Records</CardTitle>
+            <CardDescription>
+              {startDate || endDate 
+                ? `Income records from ${startDate || 'beginning'} to ${endDate || 'now'}`
+                : 'All income records'
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {filteredIncome.length > 0 ? (
@@ -694,7 +768,10 @@ const Reports = ({ selectedShop }: ReportsProps) => {
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                No income records found for the selected filters
+                {startDate || endDate 
+                  ? 'No income records found in the selected date range' 
+                  : 'No income records found for the selected shop'
+                }
               </div>
             )}
           </CardContent>
