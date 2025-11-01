@@ -1,12 +1,25 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/currency";
-import { Tables } from "@/integrations/supabase/types";
 import { useRef } from "react";
 
-type Order = Tables<'orders'>;
-type WeeklyBudget = Tables<'weekly_budgets'>;
+// Define types inline if Tables type is not available
+interface Order {
+  id: string;
+  supply_name: string | null;
+  delivery_date: string | null;
+  order_amount: number | null;
+  shop: string | null;
+  created_at?: string;
+}
+
+interface WeeklyBudget {
+  id: string;
+  shop: string;
+  budget_amount: number;
+  week_start: string;
+  created_at?: string;
+}
 
 interface WeeklyBudgetReportProps {
   shop: string;
@@ -15,7 +28,20 @@ interface WeeklyBudgetReportProps {
   weekStartStr: string;
 }
 
-export const WeeklyBudgetReport = ({ shop, currentBudget, weekOrders, weekStartStr }: WeeklyBudgetReportProps) => {
+// Currency formatting utility
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('en-ZA', {
+    style: 'currency',
+    currency: 'ZAR',
+  }).format(amount);
+};
+
+export const WeeklyBudgetReport = ({ 
+  shop, 
+  currentBudget, 
+  weekOrders, 
+  weekStartStr 
+}: WeeklyBudgetReportProps) => {
   const reportRef = useRef<HTMLDivElement>(null);
 
   const totalSpent = weekOrders.reduce((total, order) => total + (order.order_amount || 0), 0);
@@ -192,14 +218,18 @@ export const WeeklyBudgetReport = ({ shop, currentBudget, weekOrders, weekStartS
           <div className="mt-4">
             <h4 className="font-semibold mb-2">Orders for this week:</h4>
             <div className="space-y-2">
-              {weekOrders.map((order) => (
-                <div key={order.id} className="flex justify-between items-center p-2 border rounded">
-                  <span>{order.supply_name}</span>
-                  <Badge variant="outline">
-                    {formatCurrency(order.order_amount || 0)}
-                  </Badge>
-                </div>
-              ))}
+              {weekOrders.length > 0 ? (
+                weekOrders.map((order) => (
+                  <div key={order.id} className="flex justify-between items-center p-2 border rounded">
+                    <span>{order.supply_name}</span>
+                    <Badge variant="outline">
+                      {formatCurrency(order.order_amount || 0)}
+                    </Badge>
+                  </div>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center py-4">No orders for this week</p>
+              )}
             </div>
           </div>
         </div>
