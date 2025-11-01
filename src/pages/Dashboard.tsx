@@ -153,9 +153,9 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
         <MetricCard
           title="Orders Placed"
           value={formatCurrency(totalOrderAmount)}
-          description="This week's spending"
+          description={totalOrderAmount > weeklyBudgetAmount ? "⚠️ Over budget!" : "This week's spending"}
           icon={ShoppingCart}
-          variant="default"
+          variant={totalOrderAmount > weeklyBudgetAmount ? "destructive" : "default"}
         />
         <MetricCard
           title="Expected Delivery"
@@ -169,7 +169,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
           value={formatCurrency(availableBudget)}
           description={`Savings: ${formatCurrency(budgetSavings)}`}
           icon={TrendingUp}
-          variant={availableBudget >= 0 ? "success" : "warning"}
+          variant={availableBudget >= 0 ? "success" : "destructive"}
         />
       </div>
 

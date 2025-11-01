@@ -243,7 +243,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     };
   };
 
-  // Calculate this week's delivered orders
+  // Calculate ALL orders delivered this week (regardless of when they were ordered)
   const calculateThisWeekDelivered = () => {
     const thisWeekMonday = new Date(getCurrentWeekMonday());
     const thisWeekSunday = getSunday(thisWeekMonday);
@@ -252,25 +252,19 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     
     if (selectedShop === "All") {
       thisWeekDelivered = orders.filter(order => {
-        const orderDate = new Date(order.order_date);
         const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
         
-        // Order was placed AND delivered this week
-        return orderDate >= thisWeekMonday && 
-               orderDate <= thisWeekSunday && 
-               deliveryDate &&
+        // ANY order delivered this week (regardless of order date)
+        return deliveryDate &&
                deliveryDate >= thisWeekMonday && 
                deliveryDate <= thisWeekSunday &&
                order.status === "Delivered";
       });
     } else {
       thisWeekDelivered = orders.filter(order => {
-        const orderDate = new Date(order.order_date);
         const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
         
         return order.shop === selectedShop &&
-               orderDate >= thisWeekMonday && 
-               orderDate <= thisWeekSunday && 
                deliveryDate &&
                deliveryDate >= thisWeekMonday && 
                deliveryDate <= thisWeekSunday &&
@@ -286,7 +280,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
 
   const lastWeekDeliveredThisWeek = calculateLastWeekOrdersDeliveredThisWeek();
   const thisWeekDelivered = calculateThisWeekDelivered();
-  const combinedDeliveredTotal = lastWeekDeliveredThisWeek.total + thisWeekDelivered.total;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -682,83 +675,86 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </CardContent>
       </Card>
 
-      {/* Last Week Orders Delivered This Week */}
-      {lastWeekDeliveredThisWeek.orders.length > 0 && (
+      {/* Delivery Report */}
+      {(lastWeekDeliveredThisWeek.orders.length > 0 || thisWeekDelivered.orders.length > 0) && (
         <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="text-amber-700 dark:text-amber-300">
-                📦 Last Week's Orders Delivered This Week
+                📦 Weekly Delivery Report
               </span>
               <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
-                {lastWeekDeliveredThisWeek.orders.length} Orders
+                Week of {selectedWeek}
               </Badge>
             </CardTitle>
             <CardDescription className="text-amber-600 dark:text-amber-400">
-              Orders placed last week that were delivered during the current week
+              Breakdown of all orders delivered during the selected week
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="text-center p-4 bg-white dark:bg-gray-900 rounded-lg">
                   <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
                     {formatCurrency(lastWeekDeliveredThisWeek.total)}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Last Week Orders (Delivered This Week)
+                    Last Week's Orders (Delivered This Week)
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {lastWeekDeliveredThisWeek.orders.length} orders
                   </div>
                 </div>
-                <div className="text-center p-4 bg-white dark:bg-gray-900 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(thisWeekDelivered.total)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    This Week Orders (Delivered This Week)
-                  </div>
-                </div>
-                <div className="text-center p-4 bg-white dark:bg-gray-900 rounded-lg border-2 border-amber-400">
+                <div className="text-center p-4 bg-white dark:bg-gray-900 rounded-lg border-2 border-green-400">
                   <div className="text-2xl font-bold text-green-600">
-                    {formatCurrency(combinedDeliveredTotal)}
+                    {formatCurrency(thisWeekDelivered.total)}
                   </div>
                   <div className="text-sm text-muted-foreground font-semibold">
                     Total Delivered This Week
                   </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {thisWeekDelivered.orders.length} orders (includes last week's orders)
+                  </div>
                 </div>
               </div>
               
-              {/* Order Details Table */}
-              <div className="mt-4">
-                <h4 className="font-semibold mb-2 text-amber-700 dark:text-amber-300">Last Week Orders Details:</h4>
-                <div className="bg-white dark:bg-gray-900 rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Supply</TableHead>
-                        <TableHead>Order Date</TableHead>
-                        <TableHead>Delivery Date</TableHead>
-                        <TableHead>Shop</TableHead>
-                        <TableHead className="text-right">Amount Delivered</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {lastWeekDeliveredThisWeek.orders.map((order) => (
-                        <TableRow key={order.id} className="hover:bg-amber-50 dark:hover:bg-amber-950/50">
-                          <TableCell className="font-medium">{order.supply_name}</TableCell>
-                          <TableCell>{order.order_date}</TableCell>
-                          <TableCell>{order.delivery_date}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{order.shop}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            {formatCurrency(order.amount_delivered)}
-                          </TableCell>
+              {/* Order Details Table for Last Week Orders */}
+              {lastWeekDeliveredThisWeek.orders.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="font-semibold mb-2 text-amber-700 dark:text-amber-300">
+                    Last Week's Orders Delivered This Week:
+                  </h4>
+                  <div className="bg-white dark:bg-gray-900 rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Supply</TableHead>
+                          <TableHead>Order Date</TableHead>
+                          <TableHead>Delivery Date</TableHead>
+                          <TableHead>Shop</TableHead>
+                          <TableHead className="text-right">Amount Delivered</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {lastWeekDeliveredThisWeek.orders.map((order) => (
+                          <TableRow key={order.id} className="hover:bg-amber-50 dark:hover:bg-amber-950/50">
+                            <TableCell className="font-medium">{order.supply_name}</TableCell>
+                            <TableCell>{order.order_date}</TableCell>
+                            <TableCell>{order.delivery_date}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{order.shop}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">
+                              {formatCurrency(order.amount_delivered)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
