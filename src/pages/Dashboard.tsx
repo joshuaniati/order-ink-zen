@@ -1,10 +1,13 @@
 import { Shop } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import MetricCard from "@/components/dashboard/MetricCard";
-import { Package, ShoppingCart, DollarSign, TrendingUp } from "lucide-react";
+import { Package, ShoppingCart, DollarSign, TrendingUp, TrendingDown, Calendar } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from 'react';
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, format } from 'date-fns';
 import type { Tables } from "@/integrations/supabase/types";
 
 interface DashboardProps {
@@ -23,6 +26,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
   const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([]);
   const [weeklyBudgets, setWeeklyBudgets] = useState<WeeklyBudget[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dateRange, setDateRange] = useState<'current-week' | 'last-week' | 'current-month' | 'last-month'>('current-week');
 
   const fetchData = async () => {
     try {
@@ -55,6 +59,38 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     fetchData();
   }, []);
 
+  // Calculate date range based on selection
+  const getDateRange = () => {
+    const now = new Date();
+    let start: Date;
+    let end: Date;
+
+    switch (dateRange) {
+      case 'current-week':
+        start = startOfWeek(now, { weekStartsOn: 1 });
+        end = endOfWeek(now, { weekStartsOn: 1 });
+        break;
+      case 'last-week':
+        const lastWeek = subWeeks(now, 1);
+        start = startOfWeek(lastWeek, { weekStartsOn: 1 });
+        end = endOfWeek(lastWeek, { weekStartsOn: 1 });
+        break;
+      case 'current-month':
+        start = startOfMonth(now);
+        end = endOfMonth(now);
+        break;
+      case 'last-month':
+        const lastMonth = subMonths(now, 1);
+        start = startOfMonth(lastMonth);
+        end = endOfMonth(lastMonth);
+        break;
+    }
+
+    return { start: format(start, 'yyyy-MM-dd'), end: format(end, 'yyyy-MM-dd') };
+  };
+
+  const { start: rangeStart, end: rangeEnd } = getDateRange();
+
   const filteredSupplies = selectedShop === "All" 
     ? supplies 
     : supplies.filter(s => s.shop === selectedShop);
@@ -67,18 +103,21 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     ? incomeRecords 
     : incomeRecords.filter(i => i.shop === selectedShop);
 
+  // Filter by date range
+  const rangeOrders = filteredOrders.filter(o => 
+    o.order_date >= rangeStart && o.order_date <= rangeEnd
+  );
+  
+  const rangeIncome = filteredIncome.filter(i => 
+    i.date >= rangeStart && i.date <= rangeEnd
+  );
+
   const pendingOrders = filteredOrders.filter(o => o.status === "Pending");
   
   const today = new Date().toISOString().split('T')[0];
   const todayIncome = filteredIncome
     .filter(i => i.date === today)
-    .reduce((sum, i) => sum + i.net_income, 0);
-
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-  const weeklyIncome = filteredIncome
-    .filter(i => new Date(i.date) >= weekAgo)
-    .reduce((sum, i) => sum + i.net_income, 0);
+    .reduce((sum, i) => sum + Number(i.net_income), 0);
 
   // Get current week's start date (Monday)
   const getCurrentWeekStart = () => {
@@ -92,36 +131,42 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
 
   const currentWeekStart = getCurrentWeekStart();
 
-  // Get weekly budget for current week and shop
+  // Get weekly budget for date range
   const filteredBudgets = selectedShop === "All" 
     ? weeklyBudgets 
     : weeklyBudgets.filter(b => b.shop === selectedShop);
 
-  const currentWeekBudget = filteredBudgets.find(
-    b => b.week_start_date === currentWeekStart
+  const rangeBudget = filteredBudgets.find(
+    b => b.week_start_date >= rangeStart && b.week_start_date <= rangeEnd
   );
 
-  // Calculate order metrics for current week
-  const currentWeekOrders = filteredOrders.filter(
-    o => o.order_date >= currentWeekStart
-  );
-
-  const totalOrderAmount = currentWeekOrders.reduce(
+  // Calculate order metrics for date range
+  const totalOrderAmount = rangeOrders.reduce(
     (sum, o) => sum + (Number(o.order_amount) || 0), 0
   );
 
-  const totalDelivered = currentWeekOrders.reduce(
+  const totalDelivered = rangeOrders.reduce(
     (sum, o) => sum + (Number(o.amount_delivered) || 0), 0
   );
 
   // Calculate budget savings (difference when delivered < ordered)
-  const budgetSavings = currentWeekOrders.reduce((sum, o) => {
+  const budgetSavings = rangeOrders.reduce((sum, o) => {
     const ordered = Number(o.order_amount) || 0;
     const delivered = Number(o.amount_delivered) || 0;
     return sum + Math.max(0, ordered - delivered);
   }, 0);
 
-  const weeklyBudgetAmount = currentWeekBudget?.budget_amount || 0;
+  // Calculate cash-up metrics
+  const totalCashUpIncome = rangeIncome.reduce((sum, i) => sum + Number(i.daily_income), 0);
+  const totalExpenses = rangeIncome.reduce((sum, i) => sum + Number(i.expenses), 0);
+  const netIncome = rangeIncome.reduce((sum, i) => sum + Number(i.net_income), 0);
+  
+  // Count missing cash-up days
+  const daysInRange = Math.ceil((new Date(rangeEnd).getTime() - new Date(rangeStart).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const cashUpDays = rangeIncome.length;
+  const missingCashUpDays = daysInRange - cashUpDays;
+
+  const weeklyBudgetAmount = rangeBudget?.budget_amount || 0;
   const budgetRemaining = weeklyBudgetAmount - totalOrderAmount;
   const availableBudget = budgetRemaining + budgetSavings;
 
@@ -133,29 +178,52 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     );
   }
 
+  const dateRangeLabel = {
+    'current-week': 'Current Week',
+    'last-week': 'Last Week',
+    'current-month': 'Current Month',
+    'last-month': 'Last Month'
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">
-          Overview of {selectedShop === "All" ? "all shops" : `Shop ${selectedShop}`}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground">
+            Overview of {selectedShop === "All" ? "all shops" : `Shop ${selectedShop}`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current-week">Current Week</SelectItem>
+              <SelectItem value="last-week">Last Week</SelectItem>
+              <SelectItem value="current-month">Current Month</SelectItem>
+              <SelectItem value="last-month">Last Month</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          title="Weekly Budget"
+          title="Budget"
           value={formatCurrency(weeklyBudgetAmount)}
-          description={currentWeekBudget ? "Current week" : "Not set"}
+          description={rangeBudget ? dateRangeLabel[dateRange] : "Not set"}
           icon={DollarSign}
           variant="default"
         />
         <MetricCard
           title="Orders Placed"
           value={formatCurrency(totalOrderAmount)}
-          description={totalOrderAmount > weeklyBudgetAmount ? "⚠️ Over budget!" : "This week's spending"}
+          description={weeklyBudgetAmount > 0 && totalOrderAmount > weeklyBudgetAmount ? "⚠️ Over budget!" : `${rangeOrders.length} orders`}
           icon={ShoppingCart}
-          variant={totalOrderAmount > weeklyBudgetAmount ? "destructive" : "default"}
+          variant={weeklyBudgetAmount > 0 && totalOrderAmount > weeklyBudgetAmount ? "destructive" : "default"}
         />
         <MetricCard
           title="Expected Delivery"
@@ -170,6 +238,37 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
           description={`Savings: ${formatCurrency(budgetSavings)}`}
           icon={TrendingUp}
           variant={availableBudget >= 0 ? "success" : "destructive"}
+        />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Daily Income"
+          value={formatCurrency(totalCashUpIncome)}
+          description={`${cashUpDays} days recorded`}
+          icon={DollarSign}
+          variant="default"
+        />
+        <MetricCard
+          title="Expenses"
+          value={formatCurrency(totalExpenses)}
+          description={dateRangeLabel[dateRange]}
+          icon={TrendingDown}
+          variant="default"
+        />
+        <MetricCard
+          title="Net Income"
+          value={formatCurrency(netIncome)}
+          description={netIncome >= 0 ? "Profit" : "Loss"}
+          icon={TrendingUp}
+          variant={netIncome >= 0 ? "success" : "destructive"}
+        />
+        <MetricCard
+          title="Missing Cash-Ups"
+          value={missingCashUpDays.toString()}
+          description={missingCashUpDays > 0 ? "⚠️ Action needed" : "All complete"}
+          icon={Calendar}
+          variant={missingCashUpDays > 0 ? "warning" : "success"}
         />
       </div>
 
@@ -191,7 +290,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
         <MetricCard
           title="Today's Net Income"
           value={formatCurrency(todayIncome)}
-          description={`Weekly: ${formatCurrency(weeklyIncome)}`}
+          description="Daily performance"
           icon={todayIncome >= 0 ? TrendingUp : DollarSign}
           variant={todayIncome >= 0 ? "success" : "destructive"}
         />

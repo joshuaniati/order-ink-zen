@@ -1150,7 +1150,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   weekOrders={shopWeekOrders}
                   weekStartStr={getCurrentWeekMonday()}
                   onBudgetUpdate={handleBudgetUpdate}
-                  onEditBudget={handleEditBudget}
                 />
               );
             })
@@ -1166,7 +1165,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               })}
               weekStartStr={getCurrentWeekMonday()}
               onBudgetUpdate={handleBudgetUpdate}
-              onEditBudget={handleEditBudget}
             />
           )}
         </div>
