@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { WeeklyBudgetCard } from "@/components/orders/WeeklyBudgetCard";
 import { WeeklyBudgetReport } from "@/components/orders/WeeklyBudgetReport";
+import { MissingCashUpAlert } from "@/components/orders/MissingCashUpAlert";
 
 interface OrdersProps {
   selectedShop: Shop;
@@ -24,12 +25,14 @@ interface OrdersProps {
 type Order = Tables<'orders'>;
 type Supply = Tables<'supplies'>;
 type WeeklyBudget = Tables<'weekly_budgets'>;
+type IncomeRecord = Tables<'income_records'>;
 
 const Orders = ({ selectedShop }: OrdersProps) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [shops, setShops] = useState<string[]>([]);
   const [weeklyBudgets, setWeeklyBudgets] = useState<WeeklyBudget[]>([]);
+  const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isWeekSelectOpen, setIsWeekSelectOpen] = useState(false);
   const [isBudgetEditOpen, setIsBudgetEditOpen] = useState(false);
@@ -100,19 +103,22 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     try {
       setLoading(true);
       
-      const [ordersResponse, suppliesResponse, budgetsResponse] = await Promise.all([
+      const [ordersResponse, suppliesResponse, budgetsResponse, incomeResponse] = await Promise.all([
         supabase.from('orders').select('*').order('created_at', { ascending: false }),
         supabase.from('supplies').select('*'),
-        supabase.from('weekly_budgets').select('*')
+        supabase.from('weekly_budgets').select('*'),
+        supabase.from('income_records').select('*')
       ]);
 
       if (ordersResponse.error) throw ordersResponse.error;
       if (suppliesResponse.error) throw suppliesResponse.error;
       if (budgetsResponse.error) throw budgetsResponse.error;
+      if (incomeResponse.error) throw incomeResponse.error;
 
       setOrders(ordersResponse.data || []);
       setSupplies(suppliesResponse.data || []);
       setWeeklyBudgets(budgetsResponse.data || []);
+      setIncomeRecords(incomeResponse.data || []);
 
       const uniqueShops = [...new Set(suppliesResponse.data?.map(s => s.shop).filter(Boolean) || [])];
       setShops(uniqueShops);
@@ -1032,6 +1038,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </div>
       </div>
 
+      {/* Missing Cash Up Alert */}
+      <MissingCashUpAlert selectedShop={selectedShop} incomeRecords={incomeRecords} />
+
       {/* Current Week Budget Overview - More Compact */}
       <Card className="p-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1150,7 +1159,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   weekOrders={shopWeekOrders}
                   weekStartStr={getCurrentWeekMonday()}
                   onBudgetUpdate={handleBudgetUpdate}
-                  onEditBudget={handleEditBudget}
                 />
               );
             })
@@ -1166,7 +1174,6 @@ const Orders = ({ selectedShop }: OrdersProps) => {
               })}
               weekStartStr={getCurrentWeekMonday()}
               onBudgetUpdate={handleBudgetUpdate}
-              onEditBudget={handleEditBudget}
             />
           )}
         </div>
