@@ -1293,7 +1293,7 @@ const Orders = ({ selectedShop }: OrdersProps) => {
         </CardContent>
       </Card>
 
-      {/* Order Dialog */}
+      {/* Order Dialog - RESTORED TO ORIGINAL LAYOUT */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => {
         setIsDialogOpen(open);
         if (!open) resetForm();
@@ -1303,9 +1303,9 @@ const Orders = ({ selectedShop }: OrdersProps) => {
             <DialogTitle>{editingOrder ? "Edit Order" : "Create New Order"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="supplyId" className="text-sm">Select Supply *</Label>
+                <Label htmlFor="supplyId">Select Supply *</Label>
                 <Select value={formData.supply_id} onValueChange={(value) => setFormData({ ...formData, supply_id: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Choose supply" />
@@ -1319,26 +1319,71 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="orderDate" className="text-sm">Order Date *</Label>
-                <Input
-                  type="date"
-                  required
-                  value={formData.order_date}
-                  onChange={(e) => setFormData({ ...formData, order_date: e.target.value })}
-                />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="orderDate">Order Date *</Label>
+                  <Input
+                    type="date"
+                    required
+                    value={formData.order_date}
+                    onChange={(e) => setFormData({ ...formData, order_date: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="deliveryDate">Delivery Date</Label>
+                  <Input
+                    type="date"
+                    value={formData.delivery_date}
+                    onChange={(e) => setFormData({ ...formData, delivery_date: e.target.value })}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="orderAmount" className="text-sm">Order Amount *</Label>
-                <Input
-                  type="number"
-                  required
-                  value={formData.order_amount}
-                  onChange={(e) => setFormData({ ...formData, order_amount: parseFloat(e.target.value) })}
-                />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="orderedBy">Ordered By *</Label>
+                  <Input
+                    required
+                    value={formData.ordered_by}
+                    onChange={(e) => setFormData({ ...formData, ordered_by: e.target.value })}
+                    placeholder="Person who placed the order"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contactPerson">Contact Person</Label>
+                  <Input
+                    value={formData.contact_person}
+                    onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                    placeholder="Supplier contact person"
+                  />
+                </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="orderAmount">Order Amount *</Label>
+                  <Input
+                    type="number"
+                    required
+                    value={formData.order_amount}
+                    onChange={(e) => setFormData({ ...formData, order_amount: parseFloat(e.target.value) })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amountDelivered">Amount Delivered</Label>
+                  <Input
+                    type="number"
+                    value={formData.amount_delivered}
+                    onChange={(e) => setFormData({ ...formData, amount_delivered: parseFloat(e.target.value) })}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="shop" className="text-sm">Shop *</Label>
+                <Label htmlFor="shop">Shop *</Label>
                 <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a shop" />
@@ -1350,7 +1395,18 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Additional notes or comments..."
+                  rows={3}
+                />
+              </div>
             </div>
+
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
