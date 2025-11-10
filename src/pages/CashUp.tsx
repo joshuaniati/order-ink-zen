@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useShops } from "@/hooks/useShops";
@@ -27,6 +27,10 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
   const [editingRecord, setEditingRecord] = useState<IncomeRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const { shops, loading: shopsLoading } = useShops();
+  
+  // Date range filter state
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   
   const today = new Date().toISOString().split('T')[0];
   
@@ -73,9 +77,28 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
     fetchData();
   }, []);
 
-  const filteredRecords = selectedShop === "All" 
-    ? records 
-    : records.filter(r => r.shop === selectedShop);
+  // Apply shop and date range filters
+  const filteredRecords = records.filter(record => {
+    const shopMatches = selectedShop === "All" || record.shop === selectedShop;
+    
+    let dateMatches = true;
+    if (dateFrom && dateTo) {
+      const recordDate = new Date(record.date);
+      const fromDate = new Date(dateFrom);
+      const toDate = new Date(dateTo);
+      dateMatches = recordDate >= fromDate && recordDate <= toDate;
+    } else if (dateFrom) {
+      const recordDate = new Date(record.date);
+      const fromDate = new Date(dateFrom);
+      dateMatches = recordDate >= fromDate;
+    } else if (dateTo) {
+      const recordDate = new Date(record.date);
+      const toDate = new Date(dateTo);
+      dateMatches = recordDate <= toDate;
+    }
+    
+    return shopMatches && dateMatches;
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -420,10 +443,49 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Cash Up History</CardTitle>
-          <CardDescription>
-            {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} records
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Cash Up History</CardTitle>
+              <CardDescription>
+                {selectedShop === "All" ? "All shops" : `Shop ${selectedShop}`} records
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="date-from" className="text-sm">From:</Label>
+                <Input
+                  id="date-from"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-40"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="date-to" className="text-sm">To:</Label>
+                <Input
+                  id="date-to"
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-40"
+                />
+              </div>
+              {(dateFrom || dateTo) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setDateFrom("");
+                    setDateTo("");
+                  }}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
