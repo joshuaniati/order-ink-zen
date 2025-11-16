@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, Pencil, Trash2, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -253,123 +254,125 @@ const CashUp = ({ selectedShop }: CashUpProps) => {
               Record Cash Up
             </Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
+          <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] p-0">
+            <DialogHeader className="p-6 pb-0">
               <DialogTitle>{editingRecord ? "Edit Record" : "Record Daily Cash Up"}</DialogTitle>
               <DialogDescription>
                 Enter daily financial information
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="date">Date *</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  required
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="shop">Shop *</Label>
-                <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value as Shop })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a shop" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {shops.map((shop) => (
-                      <SelectItem key={shop.id} value={shop.name}>
-                        {shop.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cash_amount">Daily Cash Amount (ZAR) *</Label>
-                <Input
-                  id="cash_amount"
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.cash_amount}
-                  onChange={(e) => setFormData({ ...formData, cash_amount: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="card_machine_amount">Mobile Card Machine Amount (ZAR) *</Label>
-                <Input
-                  id="card_machine_amount"
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.card_machine_amount}
-                  onChange={(e) => setFormData({ ...formData, card_machine_amount: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="account_amount">Account Amount (ZAR) *</Label>
-                <Input
-                  id="account_amount"
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.account_amount}
-                  onChange={(e) => setFormData({ ...formData, account_amount: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="direct_deposit_amount">Direct Deposit Amount (ZAR) *</Label>
-                <Input
-                  id="direct_deposit_amount"
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.direct_deposit_amount}
-                  onChange={(e) => setFormData({ ...formData, direct_deposit_amount: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="expenses">Expenses (ZAR) *</Label>
-                <Input
-                  id="expenses"
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.expenses}
-                  onChange={(e) => setFormData({ ...formData, expenses: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Total Daily Income (Auto-calculated)</Label>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(formData.cash_amount + formData.card_machine_amount + formData.account_amount + formData.direct_deposit_amount)}
+            <ScrollArea className="max-h-[calc(90vh-180px)] px-6">
+              <form id="cash-up-form" onSubmit={handleSubmit} className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date *</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    required
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Net Income (Auto-calculated)</Label>
-                <div className="text-2xl font-bold">
-                  {formatCurrency((formData.cash_amount + formData.card_machine_amount + formData.account_amount + formData.direct_deposit_amount) - formData.expenses)}
+                <div className="space-y-2">
+                  <Label htmlFor="shop">Shop *</Label>
+                  <Select value={formData.shop} onValueChange={(value) => setFormData({ ...formData, shop: value as Shop })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a shop" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {shops.map((shop) => (
+                        <SelectItem key={shop.id} value={shop.name}>
+                          {shop.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingRecord ? "Update" : "Record"}
-                </Button>
-              </div>
-            </form>
+                <div className="space-y-2">
+                  <Label htmlFor="cash_amount">Daily Cash Amount (ZAR) *</Label>
+                  <Input
+                    id="cash_amount"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.cash_amount}
+                    onChange={(e) => setFormData({ ...formData, cash_amount: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="card_machine_amount">Mobile Card Machine Amount (ZAR) *</Label>
+                  <Input
+                    id="card_machine_amount"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.card_machine_amount}
+                    onChange={(e) => setFormData({ ...formData, card_machine_amount: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="account_amount">Account Amount (ZAR) *</Label>
+                  <Input
+                    id="account_amount"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.account_amount}
+                    onChange={(e) => setFormData({ ...formData, account_amount: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="direct_deposit_amount">Direct Deposit Amount (ZAR) *</Label>
+                  <Input
+                    id="direct_deposit_amount"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.direct_deposit_amount}
+                    onChange={(e) => setFormData({ ...formData, direct_deposit_amount: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="expenses">Expenses (ZAR) *</Label>
+                  <Input
+                    id="expenses"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.expenses}
+                    onChange={(e) => setFormData({ ...formData, expenses: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Total Daily Income (Auto-calculated)</Label>
+                  <div className="text-xl sm:text-2xl font-bold">
+                    {formatCurrency(formData.cash_amount + formData.card_machine_amount + formData.account_amount + formData.direct_deposit_amount)}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Net Income (Auto-calculated)</Label>
+                  <div className="text-xl sm:text-2xl font-bold">
+                    {formatCurrency((formData.cash_amount + formData.card_machine_amount + formData.account_amount + formData.direct_deposit_amount) - formData.expenses)}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  />
+                </div>
+              </form>
+            </ScrollArea>
+            <div className="flex justify-end gap-2 p-6 pt-4 border-t">
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" form="cash-up-form">
+                {editingRecord ? "Update" : "Record"}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
