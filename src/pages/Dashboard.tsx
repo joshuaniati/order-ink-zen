@@ -136,9 +136,12 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
     ? weeklyBudgets 
     : weeklyBudgets.filter(b => b.shop === selectedShop);
 
-  const rangeBudget = filteredBudgets.find(
+  // Calculate total budget for the date range
+  const rangeBudgets = filteredBudgets.filter(
     b => b.week_start_date >= rangeStart && b.week_start_date <= rangeEnd
   );
+  
+  const weeklyBudgetAmount = rangeBudgets.reduce((sum, b) => sum + Number(b.budget_amount || 0), 0);
 
   // Calculate order metrics for date range
   const totalOrderAmount = rangeOrders.reduce(
@@ -163,10 +166,16 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
   
   // Count missing cash-up days
   const daysInRange = Math.ceil((new Date(rangeEnd).getTime() - new Date(rangeStart).getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  const cashUpDays = rangeIncome.length;
-  const missingCashUpDays = daysInRange - cashUpDays;
+  
+  // Get unique shops to count expected records
+  const shopsToCheck = selectedShop === "All" 
+    ? Array.from(new Set([...supplies.map(s => s.shop), ...orders.map(o => o.shop), ...incomeRecords.map(i => i.shop)]))
+    : [selectedShop];
+  
+  const expectedCashUpRecords = daysInRange * shopsToCheck.length;
+  const actualCashUpRecords = rangeIncome.length;
+  const missingCashUpDays = Math.max(0, expectedCashUpRecords - actualCashUpRecords);
 
-  const weeklyBudgetAmount = rangeBudget?.budget_amount || 0;
   const budgetRemaining = weeklyBudgetAmount - totalOrderAmount;
   const availableBudget = budgetRemaining + budgetSavings;
 
@@ -214,7 +223,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
         <MetricCard
           title="Budget"
           value={formatCurrency(weeklyBudgetAmount)}
-          description={rangeBudget ? dateRangeLabel[dateRange] : "Not set"}
+          description={weeklyBudgetAmount > 0 ? dateRangeLabel[dateRange] : "Not set"}
           icon={DollarSign}
           variant="default"
         />
@@ -245,7 +254,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
         <MetricCard
           title="Daily Income"
           value={formatCurrency(totalCashUpIncome)}
-          description={`${cashUpDays} days recorded`}
+          description={`${actualCashUpRecords} records in ${dateRangeLabel[dateRange]}`}
           icon={DollarSign}
           variant="default"
         />
