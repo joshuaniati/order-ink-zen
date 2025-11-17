@@ -145,6 +145,17 @@ const Reports = ({ selectedShop }: ReportsProps) => {
   const totalExpenses = filteredIncome.reduce((sum, r) => sum + r.expenses, 0);
   const totalNet = filteredIncome.reduce((sum, r) => sum + r.net_income, 0);
   const totalOrders = filteredOrders.reduce((sum, o) => sum + o.order_amount, 0);
+  
+  // Calculate order status totals
+  const deliveredOrders = filteredOrders.filter(o => o.status === 'Delivered');
+  const pendingOrders = filteredOrders.filter(o => o.status === 'Pending');
+  const partialOrders = filteredOrders.filter(o => o.status === 'Partial');
+  
+  const totalDelivered = deliveredOrders.reduce((sum, o) => sum + o.order_amount, 0);
+  const totalPending = pendingOrders.reduce((sum, o) => sum + o.order_amount, 0);
+  const partialOrderedAmount = partialOrders.reduce((sum, o) => sum + o.order_amount, 0);
+  const partialDeliveredAmount = partialOrders.reduce((sum, o) => sum + o.amount_delivered, 0);
+  const partialDifference = partialOrderedAmount - partialDeliveredAmount;
 
   const handlePrintCustom = () => {
     if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
@@ -333,13 +344,34 @@ const Reports = ({ selectedShop }: ReportsProps) => {
       printContent += `
         <div class="section">
           <div class="section-title">Orders Summary</div>
+          
+          <div class="summary-cards" style="margin-bottom: 20px;">
+            <div class="summary-card">
+              <div class="summary-value">${formatCurrency(totalDelivered)}</div>
+              <div class="summary-label">Total Delivered (${deliveredOrders.length} orders)</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-value">${formatCurrency(totalPending)}</div>
+              <div class="summary-label">Total Not Delivered (${pendingOrders.length} orders)</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-value">${formatCurrency(partialDifference)}</div>
+              <div class="summary-label">Partial Outstanding (${partialOrders.length} orders)</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-value">${formatCurrency(totalOrders)}</div>
+              <div class="summary-label">Total Orders (${filteredOrders.length})</div>
+            </div>
+          </div>
+          
           <table>
             <thead>
               <tr>
                 <th>Supply</th>
                 <th>Date</th>
                 <th>Contact Person</th>
-                <th>Amount</th>
+                <th>Ordered</th>
+                <th>Delivered</th>
                 <th>Status</th>
                 <th>Shop</th>
               </tr>
@@ -351,6 +383,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
                   <td>${order.order_date || 'N/A'}</td>
                   <td>${order.contact_person || 'N/A'}</td>
                   <td>${formatCurrency(order.order_amount || 0)}</td>
+                  <td>${formatCurrency(order.amount_delivered || 0)}</td>
                   <td>${order.status || 'N/A'}</td>
                   <td>${order.shop || 'N/A'}</td>
                 </tr>
