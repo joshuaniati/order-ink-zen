@@ -26,12 +26,37 @@ const Reports = ({ selectedShop }: ReportsProps) => {
   const [shops, setShops] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [reportShop, setReportShop] = useState<Shop>(selectedShop);
+  const [selectedShops, setSelectedShops] = useState<string[]>(selectedShop === "All" ? [] : [selectedShop]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [includeSupplies, setIncludeSupplies] = useState(true);
   const [includeOrders, setIncludeOrders] = useState(true);
   const [includeIncome, setIncludeIncome] = useState(true);
+
+  // Helper to check if a shop is selected
+  const isShopSelected = (shop: string) => {
+    if (selectedShops.length === 0) return true; // All shops
+    return selectedShops.includes(shop);
+  };
+
+  // Toggle shop selection
+  const toggleShop = (shop: string) => {
+    setSelectedShops(prev => 
+      prev.includes(shop) 
+        ? prev.filter(s => s !== shop)
+        : [...prev, shop]
+    );
+  };
+
+  // Select all shops
+  const selectAllShops = () => {
+    setSelectedShops([]);
+  };
+
+  // Clear all selections
+  const clearAllShops = () => {
+    setSelectedShops([]);
+  };
 
   // Fetch data from Supabase
   useEffect(() => {
@@ -85,7 +110,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
 
   // Get filtered data based on selections
   const filteredSupplies = supplies.filter(s => {
-    const matchesShop = reportShop === "All" || s.shop === reportShop;
+    const matchesShop = isShopSelected(s.shop);
     
     // For supplies, we need to check if they have any orders within the date range
     // or if they were created/active during the date range
@@ -103,14 +128,14 @@ const Reports = ({ selectedShop }: ReportsProps) => {
   });
 
   const filteredOrders = orders.filter(o => {
-    const matchesShop = reportShop === "All" || o.shop === reportShop;
+    const matchesShop = isShopSelected(o.shop);
     const matchesDate = (!startDate || o.order_date >= startDate) && 
                        (!endDate || o.order_date <= endDate);
     return matchesShop && matchesDate;
   });
 
   const filteredIncome = incomeRecords.filter(r => {
-    const matchesShop = reportShop === "All" || r.shop === reportShop;
+    const matchesShop = isShopSelected(r.shop);
     const matchesDate = (!startDate || r.date >= startDate) && 
                        (!endDate || r.date <= endDate);
     return matchesShop && matchesDate;
@@ -229,7 +254,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
           <div class="header">
             <div class="report-title">Business Report</div>
             <div class="report-meta">Generated on: ${new Date().toLocaleDateString()}</div>
-            <div class="report-meta">Shop: ${reportShop === "All" ? "All Shops" : reportShop}</div>
+            <div class="report-meta">Shop(s): ${selectedShops.length === 0 ? "All Shops" : selectedShops.join(', ')}</div>
             ${startDate && endDate ? `<div class="report-meta">Period: ${startDate} to ${endDate}</div>` : ''}
             <div class="report-meta">Report Includes: ${[
               includeSupplies && "Supplies",
@@ -448,21 +473,51 @@ const Reports = ({ selectedShop }: ReportsProps) => {
           <CardDescription>Select data and filters for your report</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="shop">Shop</Label>
-              <Select value={reportShop} onValueChange={(value) => setReportShop(value as Shop)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All Shops</SelectItem>
-                  {shops.map((shop) => (
-                    <SelectItem key={shop} value={shop}>{shop}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <Label>Select Shops</Label>
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={selectAllShops}
+                  >
+                    All Shops
+                  </Button>
+                  {selectedShops.length > 0 && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={clearAllShops}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4 border rounded-md max-h-40 overflow-y-auto">
+                {shops.map((shop) => (
+                  <div key={shop} className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={`shop-${shop}`}
+                      checked={selectedShops.includes(shop)}
+                      onCheckedChange={() => toggleShop(shop)}
+                    />
+                    <label 
+                      htmlFor={`shop-${shop}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      {shop}
+                    </label>
+                  </div>
+                ))}
+              </div>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="startDate">Start Date</Label>
               <input
@@ -483,6 +538,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>
+          </div>
           </div>
           
           <div className="space-y-2">
@@ -522,13 +578,13 @@ const Reports = ({ selectedShop }: ReportsProps) => {
           </div>
 
           {/* Active Filters Display */}
-          {(reportShop !== "All" || startDate || endDate) && (
+          {(selectedShops.length > 0 || startDate || endDate) && (
             <div className="pt-4 border-t">
               <Label>Active Filters:</Label>
               <div className="flex flex-wrap gap-2 mt-2">
-                {reportShop !== "All" && (
+                {selectedShops.length > 0 && (
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    Shop: {reportShop}
+                    Shops: {selectedShops.join(', ')}
                   </span>
                 )}
                 {startDate && (
@@ -552,7 +608,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
         <h1 className="text-2xl font-bold">Business Report</h1>
         <p className="text-sm text-gray-600">
           Generated on {new Date().toLocaleDateString()}
-          {reportShop !== "All" && ` - ${reportShop}`}
+          {selectedShops.length > 0 && ` - ${selectedShops.join(', ')}`}
           {startDate && endDate && ` - ${startDate} to ${endDate}`}
         </p>
         <p className="text-sm text-gray-600">
