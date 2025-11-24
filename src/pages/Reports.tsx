@@ -145,6 +145,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
   const totalExpenses = filteredIncome.reduce((sum, r) => sum + r.expenses, 0);
   const totalNet = filteredIncome.reduce((sum, r) => sum + r.net_income, 0);
   const totalOrders = filteredOrders.reduce((sum, o) => sum + o.order_amount, 0);
+  const netDifference = totalIncome - totalOrders;
   
   // Calculate order status totals
   const deliveredOrders = filteredOrders.filter(o => o.status === 'Delivered');
@@ -296,8 +297,8 @@ const Reports = ({ selectedShop }: ReportsProps) => {
             <div class="summary-label">Total Income</div>
           </div>
           <div class="summary-card">
-            <div class="summary-value">${formatCurrency(totalNet)}</div>
-            <div class="summary-label">Net Profit</div>
+            <div class="summary-value">${formatCurrency(netDifference)}</div>
+            <div class="summary-label">Net Difference (Income - Orders)</div>
           </div>
         ` : ''}
       </div>
@@ -696,12 +697,12 @@ const Reports = ({ selectedShop }: ReportsProps) => {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+                <CardTitle className="text-sm font-medium">Net Difference</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(totalNet)}</div>
+                <div className="text-2xl font-bold">{formatCurrency(netDifference)}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {startDate || endDate ? 'Filtered by date range' : 'All records'}
+                  Income - Orders
                 </p>
               </CardContent>
             </Card>
