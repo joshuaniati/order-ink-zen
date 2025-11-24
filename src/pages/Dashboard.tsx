@@ -163,6 +163,7 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
   const totalCashUpIncome = rangeIncome.reduce((sum, i) => sum + Number(i.daily_income), 0);
   const totalExpenses = rangeIncome.reduce((sum, i) => sum + Number(i.expenses), 0);
   const netIncome = rangeIncome.reduce((sum, i) => sum + Number(i.net_income), 0);
+  const netDifference = totalCashUpIncome - totalOrderAmount;
   
   // Count missing cash-up days
   const daysInRange = Math.ceil((new Date(rangeEnd).getTime() - new Date(rangeStart).getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -266,11 +267,11 @@ const Dashboard = ({ selectedShop }: DashboardProps) => {
           variant="default"
         />
         <MetricCard
-          title="Net Income"
-          value={formatCurrency(netIncome)}
-          description={netIncome >= 0 ? "Profit" : "Loss"}
+          title="Net Difference"
+          value={formatCurrency(netDifference)}
+          description="Income - Orders"
           icon={TrendingUp}
-          variant={netIncome >= 0 ? "success" : "destructive"}
+          variant={netDifference >= 0 ? "success" : "destructive"}
         />
         <MetricCard
           title="Missing Cash-Ups"
