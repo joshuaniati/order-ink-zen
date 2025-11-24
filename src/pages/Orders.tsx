@@ -270,6 +270,24 @@ const Orders = ({ selectedShop }: OrdersProps) => {
     });
   };
 
+  // Get last week orders that were not delivered
+  const getLastWeekUndeliveredOrders = (shopName: string) => {
+    const weekMonday = new Date(getCurrentWeekMonday());
+    const lastWeekMonday = new Date(weekMonday);
+    lastWeekMonday.setDate(weekMonday.getDate() - 7);
+    const lastWeekSunday = getSunday(lastWeekMonday);
+    
+    return orders.filter(order => {
+      const orderDate = new Date(order.order_date);
+      const shopMatches = shopName === "All" || order.shop === shopName;
+      
+      return shopMatches &&
+             orderDate >= lastWeekMonday && 
+             orderDate <= lastWeekSunday && 
+             (order.status === "Pending" || order.status === "Partial");
+    });
+  };
+
   // Print weekly delivery list for a specific shop with individual signatures
   const printWeeklyDeliveryList = (shopName: string) => {
     const deliveredOrders = getWeeklyDeliveredOrders(shopName);
@@ -1110,6 +1128,64 @@ const Orders = ({ selectedShop }: OrdersProps) => {
                   </div>
                   <div className="text-right">
                     <div className="font-bold">{formatCurrency(order.amount_delivered)}</div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEdit(order)}
+                      className="h-6 w-6 p-0 mt-1"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Undelivered Orders from Last Week */}
+      {getLastWeekUndeliveredOrders(selectedShop).length > 0 && (
+        <Card className="border-red-500 bg-red-50 dark:bg-red-950">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="text-red-700 dark:text-red-300">
+                ⚠️ Last Week Orders Not Yet Delivered
+              </span>
+              <Badge variant="outline" className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">
+                {getLastWeekUndeliveredOrders(selectedShop).length} orders
+              </Badge>
+            </CardTitle>
+            <CardDescription className="text-red-600 dark:text-red-400">
+              Orders placed last week that are still pending or partially delivered
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {getLastWeekUndeliveredOrders(selectedShop).map((order) => (
+                <div key={order.id} className="flex justify-between items-center p-3 bg-white dark:bg-gray-900 rounded-lg border border-red-200">
+                  <div className="flex-1">
+                    <div className="font-medium">{order.supply_name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Ordered: {order.order_date} | Contact: {order.contact_person}
+                    </div>
+                    <div className="text-sm mt-1">
+                      <span className="font-medium">Shop:</span> {order.shop}
+                      {order.notes && (
+                        <span className="ml-2">
+                          <span className="font-medium">Notes:</span> {order.notes}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold">{formatCurrency(order.order_amount)}</div>
+                    {order.status === "Partial" && (
+                      <div className="text-sm text-muted-foreground">
+                        Delivered: {formatCurrency(order.amount_delivered)}
+                      </div>
+                    )}
+                    <div className="mt-1">{getStatusBadge(order.status)}</div>
                     <Button
                       variant="ghost"
                       size="sm"
