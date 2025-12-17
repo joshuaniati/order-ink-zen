@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Pencil, Trash2, Store, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +36,8 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
   const [editingSupply, setEditingSupply] = useState<Supply | null>(null);
   const [loading, setLoading] = useState(true);
   const [shopError, setShopError] = useState<string | null>(null);
-  const [printShop, setPrintShop] = useState<string>("");
+  const [printShopFilter, setPrintShopFilter] = useState<string>("");
+  const [selectedSuppliesForPrint, setSelectedSuppliesForPrint] = useState<string[]>([]);
   
   const { shops, loading: shopsLoading, addShop } = useShops();
   
@@ -86,22 +88,168 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     ? supplies 
     : supplies.filter(s => s.shop === selectedShop);
 
-  // Supplies to print based on selected print shop
-  const suppliesToPrint = printShop 
-    ? supplies.filter(s => s.shop === printShop)
-    : [];
+  // Supplies filtered by shop for selection
+  const suppliesForSelection = printShopFilter && printShopFilter !== "all"
+    ? supplies.filter(s => s.shop === printShopFilter)
+    : supplies;
+
+  // Toggle supply selection for print
+  const toggleSupplyForPrint = (supplyId: string) => {
+    setSelectedSuppliesForPrint(prev =>
+      prev.includes(supplyId)
+        ? prev.filter(id => id !== supplyId)
+        : [...prev, supplyId]
+    );
+  };
+
+  // Select all supplies for current filter
+  const selectAllSuppliesForPrint = () => {
+    const filteredIds = suppliesForSelection.map(s => s.id);
+    setSelectedSuppliesForPrint(filteredIds);
+  };
+
+  // Clear all supply selections
+  const clearAllSuppliesForPrint = () => {
+    setSelectedSuppliesForPrint([]);
+  };
 
   const handlePrint = () => {
-    if (!printShop) {
-      toast.error("Please select a shop to print");
+    if (selectedSuppliesForPrint.length === 0) {
+      toast.error("Please select at least one supply");
       return;
     }
-    if (suppliesToPrint.length === 0) {
-      toast.error("No supplies found for the selected shop");
+
+    const suppliesToPrint = supplies.filter(s => selectedSuppliesForPrint.includes(s.id));
+    const shopName = printShopFilter && printShopFilter !== "all" ? printShopFilter : "All Shops";
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error("Please allow pop-ups to print the form");
       return;
     }
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Supplies Order List - ${shopName}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px;
+              color: #333;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px;
+              border-bottom: 2px solid #333;
+              padding-bottom: 15px;
+            }
+            .form-title { 
+              font-size: 22px; 
+              font-weight: bold;
+              margin-bottom: 8px;
+            }
+            .shop-name {
+              font-size: 18px;
+              color: #555;
+              margin-bottom: 5px;
+            }
+            .print-date {
+              font-size: 12px;
+              color: #777;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+            }
+            th, td {
+              border: 1px solid #333;
+              padding: 12px 10px;
+              text-align: left;
+            }
+            th {
+              background-color: #f0f0f0;
+              font-weight: bold;
+              font-size: 13px;
+            }
+            td {
+              font-size: 12px;
+            }
+            .remark-col {
+              width: 25%;
+            }
+            .ordered-col {
+              width: 12%;
+              text-align: center;
+            }
+            .checkbox {
+              width: 18px;
+              height: 18px;
+              border: 2px solid #333;
+              display: inline-block;
+            }
+            .total-row {
+              background-color: #f5f5f5;
+              font-weight: bold;
+            }
+            @media print {
+              body { margin: 15px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="form-title">Supplies Order List</div>
+            <div class="shop-name">${shopName}</div>
+            <div class="print-date">Date: ${new Date().toLocaleDateString()}</div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Supply Name</th>
+                <th>Suggested Amount</th>
+                <th>Phone Number</th>
+                <th class="remark-col">Remark</th>
+                <th class="ordered-col">Ordered</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${suppliesToPrint.map(supply => `
+                <tr>
+                  <td>${supply.name}</td>
+                  <td>R ${supply.amount.toFixed(2)}</td>
+                  <td>${supply.phone_number || '-'}</td>
+                  <td class="remark-col"></td>
+                  <td class="ordered-col"><div class="checkbox"></div></td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td>Total</td>
+                <td>R ${suppliesToPrint.reduce((sum, s) => sum + s.amount, 0).toFixed(2)}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => window.close(), 500);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
     setIsPrintDialogOpen(false);
-    setTimeout(() => window.print(), 100);
+    toast.success("Generating order list...");
   };
 
   const handleSupplySubmit = async (e: React.FormEvent) => {
@@ -243,21 +391,22 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                   Print List
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Print Supplies List</DialogTitle>
                   <DialogDescription>
-                    Select a shop to print its supplies list
+                    Select supplies to print an order list with checkboxes
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Select Shop</Label>
-                    <Select value={printShop} onValueChange={setPrintShop}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a shop" />
+                    <Label>Filter by Shop (optional)</Label>
+                    <Select value={printShopFilter} onValueChange={setPrintShopFilter}>
+                      <SelectTrigger className="w-full md:w-[250px]">
+                        <SelectValue placeholder="All Shops" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="all">All Shops</SelectItem>
                         {shops.map((shop) => (
                           <SelectItem key={shop.id} value={shop.name}>
                             {shop.name} ({supplies.filter(s => s.shop === shop.name).length} supplies)
@@ -266,16 +415,61 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                       </SelectContent>
                     </Select>
                   </div>
-                  {printShop && (
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Select Supplies</Label>
+                      <div className="flex gap-2">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={selectAllSuppliesForPrint}
+                        >
+                          Select All
+                        </Button>
+                        {selectedSuppliesForPrint.length > 0 && (
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={clearAllSuppliesForPrint}
+                          >
+                            Clear
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 border rounded-md max-h-60 overflow-y-auto">
+                      {suppliesForSelection.map((supply) => (
+                        <div key={supply.id} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`supply-print-${supply.id}`}
+                            checked={selectedSuppliesForPrint.includes(supply.id)}
+                            onCheckedChange={() => toggleSupplyForPrint(supply.id)}
+                          />
+                          <label 
+                            htmlFor={`supply-print-${supply.id}`}
+                            className="text-sm font-medium leading-none cursor-pointer"
+                          >
+                            {supply.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {selectedSuppliesForPrint.length > 0 && (
                     <div className="text-sm text-muted-foreground">
-                      {suppliesToPrint.length} supplies will be printed
+                      {selectedSuppliesForPrint.length} supplies selected
                     </div>
                   )}
+
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>
                       Cancel
                     </Button>
-                    <Button onClick={handlePrint} disabled={!printShop || suppliesToPrint.length === 0}>
+                    <Button onClick={handlePrint} disabled={selectedSuppliesForPrint.length === 0}>
                       <Printer className="mr-2 h-4 w-4" />
                       Print
                     </Button>
@@ -500,45 +694,6 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
         </Card>
       </div>
 
-      {/* Print-only content */}
-      <div className="hidden print:block">
-        <div className="p-8">
-          <h1 className="text-2xl font-bold mb-2">Supplies Order List</h1>
-          <p className="text-sm text-gray-600 mb-4">
-            {printShop} - Generated on {new Date().toLocaleDateString()}
-          </p>
-          
-          <table className="w-full border-collapse border border-gray-300">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border border-gray-300 px-4 py-2 text-left">#</th>
-                <th className="border border-gray-300 px-4 py-2 text-left">Supplier Name</th>
-                <th className="border border-gray-300 px-4 py-2 text-left">Suggested Amount</th>
-                <th className="border border-gray-300 px-4 py-2 text-left">Phone Number</th>
-              </tr>
-            </thead>
-            <tbody>
-              {suppliesToPrint.map((supply, index) => (
-                <tr key={supply.id}>
-                  <td className="border border-gray-300 px-4 py-2">{index + 1}</td>
-                  <td className="border border-gray-300 px-4 py-2 font-medium">{supply.name}</td>
-                  <td className="border border-gray-300 px-4 py-2">{formatCurrency(supply.amount)}</td>
-                  <td className="border border-gray-300 px-4 py-2">{supply.phone_number || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="bg-gray-100 font-bold">
-                <td colSpan={2} className="border border-gray-300 px-4 py-2">Total</td>
-                <td className="border border-gray-300 px-4 py-2">
-                  {formatCurrency(suppliesToPrint.reduce((sum, s) => sum + s.amount, 0))}
-                </td>
-                <td className="border border-gray-300 px-4 py-2"></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
     </>
   );
 };
