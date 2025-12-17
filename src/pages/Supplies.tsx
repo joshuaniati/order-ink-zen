@@ -36,8 +36,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
   const [editingSupply, setEditingSupply] = useState<Supply | null>(null);
   const [loading, setLoading] = useState(true);
   const [shopError, setShopError] = useState<string | null>(null);
-  const [printShopFilter, setPrintShopFilter] = useState<string>("");
-  const [selectedSuppliesForPrint, setSelectedSuppliesForPrint] = useState<string[]>([]);
+  const [selectedShopsForPrint, setSelectedShopsForPrint] = useState<string[]>([]);
   
   const { shops, loading: shopsLoading, addShop } = useShops();
   
@@ -88,39 +87,38 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
     ? supplies 
     : supplies.filter(s => s.shop === selectedShop);
 
-  // Supplies filtered by shop for selection
-  const suppliesForSelection = printShopFilter && printShopFilter !== "all"
-    ? supplies.filter(s => s.shop === printShopFilter)
-    : supplies;
-
-  // Toggle supply selection for print
-  const toggleSupplyForPrint = (supplyId: string) => {
-    setSelectedSuppliesForPrint(prev =>
-      prev.includes(supplyId)
-        ? prev.filter(id => id !== supplyId)
-        : [...prev, supplyId]
+  // Toggle shop selection for print
+  const toggleShopForPrint = (shopName: string) => {
+    setSelectedShopsForPrint(prev =>
+      prev.includes(shopName)
+        ? prev.filter(s => s !== shopName)
+        : [...prev, shopName]
     );
   };
 
-  // Select all supplies for current filter
-  const selectAllSuppliesForPrint = () => {
-    const filteredIds = suppliesForSelection.map(s => s.id);
-    setSelectedSuppliesForPrint(filteredIds);
+  // Select all shops
+  const selectAllShopsForPrint = () => {
+    setSelectedShopsForPrint(shops.map(s => s.name));
   };
 
-  // Clear all supply selections
-  const clearAllSuppliesForPrint = () => {
-    setSelectedSuppliesForPrint([]);
+  // Clear all shop selections
+  const clearAllShopsForPrint = () => {
+    setSelectedShopsForPrint([]);
   };
+
+  // Get supplies for selected shops
+  const suppliesForPrint = supplies.filter(s => selectedShopsForPrint.includes(s.shop));
 
   const handlePrint = () => {
-    if (selectedSuppliesForPrint.length === 0) {
-      toast.error("Please select at least one supply");
+    if (selectedShopsForPrint.length === 0) {
+      toast.error("Please select at least one shop");
       return;
     }
 
-    const suppliesToPrint = supplies.filter(s => selectedSuppliesForPrint.includes(s.id));
-    const shopName = printShopFilter && printShopFilter !== "all" ? printShopFilter : "All Shops";
+    const suppliesToPrint = suppliesForPrint;
+    const shopName = selectedShopsForPrint.length === shops.length 
+      ? "All Shops" 
+      : selectedShopsForPrint.join(", ");
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -393,75 +391,58 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Print Supplies List</DialogTitle>
+                  <DialogTitle>Print Supplies Order Form</DialogTitle>
                   <DialogDescription>
-                    Select supplies to print an order list with checkboxes
+                    Select shops to print all their supplies
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Filter by Shop (optional)</Label>
-                    <Select value={printShopFilter} onValueChange={setPrintShopFilter}>
-                      <SelectTrigger className="w-full md:w-[250px]">
-                        <SelectValue placeholder="All Shops" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Shops</SelectItem>
-                        {shops.map((shop) => (
-                          <SelectItem key={shop.id} value={shop.name}>
-                            {shop.name} ({supplies.filter(s => s.shop === shop.name).length} supplies)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label>Select Supplies</Label>
+                      <Label>Select Shops</Label>
                       <div className="flex gap-2">
                         <Button 
                           type="button" 
                           variant="outline" 
                           size="sm"
-                          onClick={selectAllSuppliesForPrint}
+                          onClick={selectAllShopsForPrint}
                         >
                           Select All
                         </Button>
-                        {selectedSuppliesForPrint.length > 0 && (
+                        {selectedShopsForPrint.length > 0 && (
                           <Button 
                             type="button" 
                             variant="outline" 
                             size="sm"
-                            onClick={clearAllSuppliesForPrint}
+                            onClick={clearAllShopsForPrint}
                           >
                             Clear
                           </Button>
                         )}
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 border rounded-md max-h-60 overflow-y-auto">
-                      {suppliesForSelection.map((supply) => (
-                        <div key={supply.id} className="flex items-center space-x-2">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 border rounded-md max-h-40 overflow-y-auto">
+                      {shops.map((shop) => (
+                        <div key={shop.id} className="flex items-center space-x-2">
                           <Checkbox 
-                            id={`supply-print-${supply.id}`}
-                            checked={selectedSuppliesForPrint.includes(supply.id)}
-                            onCheckedChange={() => toggleSupplyForPrint(supply.id)}
+                            id={`shop-print-${shop.id}`}
+                            checked={selectedShopsForPrint.includes(shop.name)}
+                            onCheckedChange={() => toggleShopForPrint(shop.name)}
                           />
                           <label 
-                            htmlFor={`supply-print-${supply.id}`}
+                            htmlFor={`shop-print-${shop.id}`}
                             className="text-sm font-medium leading-none cursor-pointer"
                           >
-                            {supply.name}
+                            {shop.name} ({supplies.filter(s => s.shop === shop.name).length})
                           </label>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {selectedSuppliesForPrint.length > 0 && (
+                  {selectedShopsForPrint.length > 0 && (
                     <div className="text-sm text-muted-foreground">
-                      {selectedSuppliesForPrint.length} supplies selected
+                      {selectedShopsForPrint.length} shop(s) selected • {suppliesForPrint.length} supplies will be printed
                     </div>
                   )}
 
@@ -469,9 +450,9 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
                     <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>
                       Cancel
                     </Button>
-                    <Button onClick={handlePrint} disabled={selectedSuppliesForPrint.length === 0}>
+                    <Button onClick={handlePrint} disabled={selectedShopsForPrint.length === 0}>
                       <Printer className="mr-2 h-4 w-4" />
-                      Print
+                      Print Order Form
                     </Button>
                   </div>
                 </div>
