@@ -134,58 +134,59 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
           <style>
             body { 
               font-family: Arial, sans-serif; 
-              margin: 20px;
+              margin: 8px;
               color: #333;
+              font-size: 9px;
             }
             .header { 
               text-align: center; 
-              margin-bottom: 30px;
-              border-bottom: 2px solid #333;
-              padding-bottom: 15px;
+              margin-bottom: 10px;
+              border-bottom: 1px solid #333;
+              padding-bottom: 6px;
             }
             .form-title { 
-              font-size: 22px; 
+              font-size: 14px; 
               font-weight: bold;
-              margin-bottom: 8px;
+              margin-bottom: 3px;
             }
             .shop-name {
-              font-size: 18px;
+              font-size: 11px;
               color: #555;
-              margin-bottom: 5px;
+              margin-bottom: 2px;
             }
             .print-date {
-              font-size: 12px;
+              font-size: 8px;
               color: #777;
             }
             table {
               width: 100%;
               border-collapse: collapse;
-              margin-top: 20px;
+              margin-top: 8px;
             }
             th, td {
               border: 1px solid #333;
-              padding: 12px 10px;
+              padding: 4px 3px;
               text-align: left;
             }
             th {
               background-color: #f0f0f0;
               font-weight: bold;
-              font-size: 13px;
+              font-size: 9px;
             }
             td {
-              font-size: 12px;
+              font-size: 8px;
             }
             .remark-col {
-              width: 25%;
+              width: 20%;
             }
             .ordered-col {
-              width: 12%;
+              width: 8%;
               text-align: center;
             }
             .checkbox {
-              width: 18px;
-              height: 18px;
-              border: 2px solid #333;
+              width: 10px;
+              height: 10px;
+              border: 1px solid #333;
               display: inline-block;
             }
             .total-row {
@@ -193,7 +194,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
               font-weight: bold;
             }
             @media print {
-              body { margin: 15px; }
+              body { margin: 5px; }
             }
           </style>
         </head>
