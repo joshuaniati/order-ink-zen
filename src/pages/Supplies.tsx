@@ -115,7 +115,7 @@ const Supplies = ({ selectedShop }: SuppliesProps) => {
       return;
     }
 
-    const suppliesToPrint = suppliesForPrint;
+    const suppliesToPrint = [...suppliesForPrint].sort((a, b) => a.name.localeCompare(b.name));
     const shopName = selectedShopsForPrint.length === shops.length 
       ? "All Shops" 
       : selectedShopsForPrint.join(", ");
