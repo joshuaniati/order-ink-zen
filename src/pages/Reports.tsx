@@ -34,6 +34,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
   const [includeOrders, setIncludeOrders] = useState(true);
   const [includeIncome, setIncludeIncome] = useState(true);
   const [orderFormShop, setOrderFormShop] = useState<string>("");
+  const [selectedSuppliesForPrint, setSelectedSuppliesForPrint] = useState<string[]>([]);
 
   // Helper to check if a shop is selected
   const isShopSelected = (shop: string) => {
@@ -474,18 +475,37 @@ const Reports = ({ selectedShop }: ReportsProps) => {
     setTimeout(() => window.print(), 100);
   };
 
+  // Toggle supply selection for print
+  const toggleSupplyForPrint = (supplyId: string) => {
+    setSelectedSuppliesForPrint(prev =>
+      prev.includes(supplyId)
+        ? prev.filter(id => id !== supplyId)
+        : [...prev, supplyId]
+    );
+  };
+
+  // Select all supplies for current filter
+  const selectAllSuppliesForPrint = () => {
+    const filteredIds = (orderFormShop 
+      ? supplies.filter(s => s.shop === orderFormShop) 
+      : supplies
+    ).map(s => s.id);
+    setSelectedSuppliesForPrint(filteredIds);
+  };
+
+  // Clear all supply selections
+  const clearAllSuppliesForPrint = () => {
+    setSelectedSuppliesForPrint([]);
+  };
+
   const handlePrintOrderForm = () => {
-    if (!orderFormShop) {
-      toast.error("Please select a shop first");
+    if (selectedSuppliesForPrint.length === 0) {
+      toast.error("Please select at least one supply");
       return;
     }
 
-    const shopSupplies = supplies.filter(s => s.shop === orderFormShop);
-    
-    if (shopSupplies.length === 0) {
-      toast.error("No supplies found for this shop");
-      return;
-    }
+    const suppliesToPrint = supplies.filter(s => selectedSuppliesForPrint.includes(s.id));
+    const shopName = orderFormShop || "All Shops";
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -497,7 +517,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Supplies Order Form - ${orderFormShop}</title>
+          <title>Supplies Order Form - ${shopName}</title>
           <style>
             body { 
               font-family: Arial, sans-serif; 
@@ -567,7 +587,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
         <body>
           <div class="header">
             <div class="form-title">Supplies Order Form</div>
-            <div class="shop-name">${orderFormShop}</div>
+            <div class="shop-name">${shopName}</div>
             <div class="print-date">Date: ${new Date().toLocaleDateString()}</div>
           </div>
           
@@ -581,7 +601,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
               </tr>
             </thead>
             <tbody>
-              ${shopSupplies.map(supply => `
+              ${suppliesToPrint.map(supply => `
                 <tr>
                   <td>${supply.name}</td>
                   <td>${formatCurrency(supply.amount)}</td>
@@ -591,7 +611,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
               `).join('')}
               <tr class="total-row">
                 <td>Total</td>
-                <td>${formatCurrency(shopSupplies.reduce((sum, s) => sum + s.amount, 0))}</td>
+                <td>${formatCurrency(suppliesToPrint.reduce((sum, s) => sum + s.amount, 0))}</td>
                 <td></td>
                 <td></td>
               </tr>
@@ -785,39 +805,81 @@ const Reports = ({ selectedShop }: ReportsProps) => {
             <ClipboardList className="h-5 w-5" />
             Print Supplies Order Form
           </CardTitle>
-          <CardDescription>Select a shop to print an order form with checkboxes</CardDescription>
+          <CardDescription>Select supplies to print an order form with checkboxes</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Select Shop</Label>
-            <RadioGroup
-              value={orderFormShop}
-              onValueChange={setOrderFormShop}
-              className="grid grid-cols-2 md:grid-cols-3 gap-3"
-            >
-              {shops.map((shop) => (
-                <div key={shop} className="flex items-center space-x-2">
-                  <RadioGroupItem value={shop} id={`order-form-${shop}`} />
-                  <Label 
-                    htmlFor={`order-form-${shop}`}
-                    className="text-sm font-medium cursor-pointer"
+            <div className="flex items-center justify-between">
+              <Label>Filter by Shop (optional)</Label>
+            </div>
+            <Select value={orderFormShop} onValueChange={setOrderFormShop}>
+              <SelectTrigger className="w-full md:w-[250px]">
+                <SelectValue placeholder="All Shops" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Shops</SelectItem>
+                {shops.map((shop) => (
+                  <SelectItem key={shop} value={shop}>{shop}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Select Supplies</Label>
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={selectAllSuppliesForPrint}
+                >
+                  Select All
+                </Button>
+                {selectedSuppliesForPrint.length > 0 && (
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={clearAllSuppliesForPrint}
                   >
-                    {shop}
-                  </Label>
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 border rounded-md max-h-60 overflow-y-auto">
+              {(orderFormShop && orderFormShop !== "all" 
+                ? supplies.filter(s => s.shop === orderFormShop) 
+                : supplies
+              ).map((supply) => (
+                <div key={supply.id} className="flex items-center space-x-2">
+                  <Checkbox 
+                    id={`supply-print-${supply.id}`}
+                    checked={selectedSuppliesForPrint.includes(supply.id)}
+                    onCheckedChange={() => toggleSupplyForPrint(supply.id)}
+                  />
+                  <label 
+                    htmlFor={`supply-print-${supply.id}`}
+                    className="text-sm font-medium leading-none cursor-pointer"
+                  >
+                    {supply.name}
+                  </label>
                 </div>
               ))}
-            </RadioGroup>
+            </div>
           </div>
           
-          {orderFormShop && (
+          {selectedSuppliesForPrint.length > 0 && (
             <div className="text-sm text-muted-foreground">
-              {supplies.filter(s => s.shop === orderFormShop).length} supplies found for {orderFormShop}
+              {selectedSuppliesForPrint.length} supplies selected
             </div>
           )}
           
           <Button 
             onClick={handlePrintOrderForm}
-            disabled={!orderFormShop}
+            disabled={selectedSuppliesForPrint.length === 0}
             className="w-full md:w-auto"
           >
             <Printer className="mr-2 h-4 w-4" />
