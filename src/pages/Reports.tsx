@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Printer, FileText } from "lucide-react";
+import { Printer, FileText, ClipboardList } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -32,6 +33,7 @@ const Reports = ({ selectedShop }: ReportsProps) => {
   const [includeSupplies, setIncludeSupplies] = useState(true);
   const [includeOrders, setIncludeOrders] = useState(true);
   const [includeIncome, setIncludeIncome] = useState(true);
+  const [orderFormShop, setOrderFormShop] = useState<string>("");
 
   // Helper to check if a shop is selected
   const isShopSelected = (shop: string) => {
@@ -472,6 +474,145 @@ const Reports = ({ selectedShop }: ReportsProps) => {
     setTimeout(() => window.print(), 100);
   };
 
+  const handlePrintOrderForm = () => {
+    if (!orderFormShop) {
+      toast.error("Please select a shop first");
+      return;
+    }
+
+    const shopSupplies = supplies.filter(s => s.shop === orderFormShop);
+    
+    if (shopSupplies.length === 0) {
+      toast.error("No supplies found for this shop");
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error("Please allow pop-ups to print the form");
+      return;
+    }
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Supplies Order Form - ${orderFormShop}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px;
+              color: #333;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px;
+              border-bottom: 2px solid #333;
+              padding-bottom: 15px;
+            }
+            .form-title { 
+              font-size: 22px; 
+              font-weight: bold;
+              margin-bottom: 8px;
+            }
+            .shop-name {
+              font-size: 18px;
+              color: #555;
+              margin-bottom: 5px;
+            }
+            .print-date {
+              font-size: 12px;
+              color: #777;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+            }
+            th, td {
+              border: 1px solid #333;
+              padding: 12px 10px;
+              text-align: left;
+            }
+            th {
+              background-color: #f0f0f0;
+              font-weight: bold;
+              font-size: 13px;
+            }
+            td {
+              font-size: 12px;
+            }
+            .remark-col {
+              width: 25%;
+            }
+            .ordered-col {
+              width: 12%;
+              text-align: center;
+            }
+            .checkbox {
+              width: 18px;
+              height: 18px;
+              border: 2px solid #333;
+              display: inline-block;
+            }
+            .total-row {
+              background-color: #f5f5f5;
+              font-weight: bold;
+            }
+            @media print {
+              body { margin: 15px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="form-title">Supplies Order Form</div>
+            <div class="shop-name">${orderFormShop}</div>
+            <div class="print-date">Date: ${new Date().toLocaleDateString()}</div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Supply Name</th>
+                <th>Suggested Amount</th>
+                <th class="remark-col">Remark</th>
+                <th class="ordered-col">Ordered</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${shopSupplies.map(supply => `
+                <tr>
+                  <td>${supply.name}</td>
+                  <td>${formatCurrency(supply.amount)}</td>
+                  <td class="remark-col"></td>
+                  <td class="ordered-col"><div class="checkbox"></div></td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td>Total</td>
+                <td>${formatCurrency(shopSupplies.reduce((sum, s) => sum + s.amount, 0))}</td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => window.close(), 500);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    toast.success("Generating order form...");
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -634,6 +775,54 @@ const Reports = ({ selectedShop }: ReportsProps) => {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Print Supplies Order Form */}
+      <Card className="print:hidden">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5" />
+            Print Supplies Order Form
+          </CardTitle>
+          <CardDescription>Select a shop to print an order form with checkboxes</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Select Shop</Label>
+            <RadioGroup
+              value={orderFormShop}
+              onValueChange={setOrderFormShop}
+              className="grid grid-cols-2 md:grid-cols-3 gap-3"
+            >
+              {shops.map((shop) => (
+                <div key={shop} className="flex items-center space-x-2">
+                  <RadioGroupItem value={shop} id={`order-form-${shop}`} />
+                  <Label 
+                    htmlFor={`order-form-${shop}`}
+                    className="text-sm font-medium cursor-pointer"
+                  >
+                    {shop}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+          
+          {orderFormShop && (
+            <div className="text-sm text-muted-foreground">
+              {supplies.filter(s => s.shop === orderFormShop).length} supplies found for {orderFormShop}
+            </div>
+          )}
+          
+          <Button 
+            onClick={handlePrintOrderForm}
+            disabled={!orderFormShop}
+            className="w-full md:w-auto"
+          >
+            <Printer className="mr-2 h-4 w-4" />
+            Print Order Form
+          </Button>
         </CardContent>
       </Card>
 
